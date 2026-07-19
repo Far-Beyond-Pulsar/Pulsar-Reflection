@@ -1,0 +1,13 @@
+[package]
+name = "pulsar_reflection_derive"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { workspace = true, features = ["full", "extra-traits"] }
+quote = { workspace = true }
+proc-macro2 = { workspace = true, features = ["proc-macro"] }
+owo-colors = { workspace = true }

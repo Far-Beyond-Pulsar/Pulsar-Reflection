@@ -1,0 +1,22 @@
+[package]
+name = "pulsar_reflection"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["prims-core", "prims-std", "prims-glam"]
+prims-core = []
+prims-std = ["prims-core"]
+prims-serde = ["prims-std"]
+prims-glam = ["prims-core", "dep:glam"]
+
+[dependencies]
+inventory = { workspace = true }
+once_cell = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+pulsar_reflection_derive = { workspace = true }
+uuid = { workspace = true }
+dashmap = { workspace = true }
+glam = { workspace = true, optional = true }
