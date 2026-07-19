@@ -26,3 +26,4 @@ dashmap = "6.1.0"
 glam = { version = "0.33", features = ["serde"] }
 inventory = "0.3"
 owo-colors = "4"
+pulsar_reflection_derive = { path = "crates/pulsar_reflection_derive" }
