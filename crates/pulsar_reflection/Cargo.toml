@@ -9,6 +9,7 @@ prims-core = []
 prims-std = ["prims-core"]
 prims-serde = ["prims-std"]
 prims-glam = ["prims-core", "dep:glam"]
+prims-gpui = ["dep:gpui-ce", "dep:ui"]
 
 [dependencies]
 inventory = { workspace = true }
@@ -20,3 +21,5 @@ pulsar_reflection_derive = { workspace = true }
 uuid = { workspace = true }
 dashmap = { workspace = true }
 glam = { workspace = true, optional = true }
+gpui-ce = { git = "https://github.com/Far-Beyond-Pulsar/WGPUI", optional = true }
+ui = { git = "https://github.com/Far-Beyond-Pulsar/WGPUI-Component", optional = true }
