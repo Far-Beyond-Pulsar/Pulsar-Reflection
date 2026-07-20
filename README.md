@@ -98,27 +98,6 @@ pulsar_reflection = { git = "https://github.com/Far-Beyond-Pulsar/Pulsar-Reflect
 pulsar_reflection = { git = "https://github.com/Far-Beyond-Pulsar/Pulsar-Reflection", features = ["prims-gpui"] }
 ```
 
-## Project structure
-
-```
-src/
-├── lib.rs                   # re-exports, PropertyEditorArgs, Subsystems, EngineClass, behaviour traits
-├── registry.rs              # EngineClass registry (legacy)
-├── runtime_types.rs         # RuntimeTypeInfo, TypeStructure, FieldInfo
-├── runtime_registry.rs      # inventory-based type registry
-├── type_traits.rs           # Reflectable, TypeSerializer, TypeDeserializer
-├── type_renderer.rs         # custom type renderers for the property panel
-├── dynamic_types.rs         # runtime-composed types from compile-time components
-├── json_codec.rs            # JsonSerializer / JsonDeserializer
-└── prims/
-    ├── mod.rs               # feature-gated module tree
-    ├── core/                # bool, f32, i32, i64, u64, [f32;3], [f32;4]
-    ├── std/                 # String, Vec<T>, Option<T>
-    ├── serde/               # serde_json::Value
-    ├── glam/                # Mat4
-    └── helio/               # helio::Movability
-```
-
 ## Who uses it
 
 - **Pulsar Native** — component property inspection, the inspector UI, scene-snapshot data flow
