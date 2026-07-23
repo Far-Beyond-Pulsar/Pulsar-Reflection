@@ -75,18 +75,22 @@ pub use pulsar_reflection_derive::{Reflectable, pulsar_type};
 /// Widget state is carried as a type-erased map so the reflection crate has
 /// zero knowledge of what widget types exist.  Each render function retrieves
 /// its own stateful entity by concrete type via [`get_widget`].
+///
+/// Editors read the current value via [`current_value`] (downcast to their
+/// concrete type) and write changes via [`write_back`].  There is no
+/// type-specific branching in the render dispatch — the editor is chosen
+/// solely by [`type_info.type_id`](RuntimeTypeInfo::type_id) from the
+/// [`PROPERTY_EDITOR_REGISTRY`](crate::type_renderer::PROPERTY_EDITOR_REGISTRY).
 pub struct PropertyEditorArgs<'a> {
     pub id_prefix: &'a str,
     pub class_name: &'a str,
     pub display_name: &'a str,
     pub prop_name: &'a str,
     pub type_info: &'static RuntimeTypeInfo,
-    pub current_json: &'a Value,
+    pub current_value: &'a dyn std::any::Any,
     pub widgets: std::collections::HashMap<std::any::TypeId, Arc<dyn std::any::Any + Send + Sync>>,
     #[cfg(feature = "prims-gpui")]
-    pub on_bool_toggle: Arc<dyn Fn(bool, &mut gpui::Window, &mut gpui::App) + Send + Sync>,
-    #[cfg(feature = "prims-gpui")]
-    pub on_enum_select: Arc<dyn Fn(usize, &mut gpui::Window, &mut gpui::App) + Send + Sync>,
+    pub write_back: Arc<dyn Fn(Box<dyn std::any::Any + Send>, &mut gpui::Window, &mut gpui::App) + Send + Sync>,
 }
 
 impl<'a> PropertyEditorArgs<'a> {

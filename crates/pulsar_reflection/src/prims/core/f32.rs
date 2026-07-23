@@ -40,7 +40,7 @@ fn render_f32_editor(args: &crate::PropertyEditorArgs<'_>, cx: &gpui::App) -> gp
     use gpui::{prelude::*, *};
     use ui::{ActiveTheme, Sizable, h_flex, input::NumberInput};
 
-    let value = args.current_json.as_f64().unwrap_or(0.0) as f32;
+    let value = args.current_value.downcast_ref::<f32>().copied().unwrap_or(0.0);
     h_flex()
         .w_full()
         .justify_between()

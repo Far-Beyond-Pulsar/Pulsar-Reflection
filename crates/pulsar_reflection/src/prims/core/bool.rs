@@ -41,8 +41,8 @@ fn render_bool_editor(args: &crate::PropertyEditorArgs<'_>, cx: &gpui::App) -> g
     use gpui::{prelude::*, *};
     use ui::{ActiveTheme, Sizable, h_flex, switch::Switch};
 
-    let value = args.current_json.as_bool().unwrap_or(false);
-    let on_toggle = args.on_bool_toggle.clone();
+    let value = args.current_value.downcast_ref::<bool>().copied().unwrap_or(false);
+    let on_write = args.write_back.clone();
     let id = format!(
         "bool-{}-{}-{}",
         args.id_prefix, args.class_name, args.prop_name
@@ -63,7 +63,7 @@ fn render_bool_editor(args: &crate::PropertyEditorArgs<'_>, cx: &gpui::App) -> g
                 .checked(value)
                 .small()
                 .on_click(move |checked, window, cx| {
-                    (on_toggle)(*checked, window, cx);
+                    (on_write)(Box::new(*checked), window, cx);
                 }),
         )
         .into_any_element()

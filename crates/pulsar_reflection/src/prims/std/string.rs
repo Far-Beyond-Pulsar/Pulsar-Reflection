@@ -16,12 +16,57 @@ fn deserialize_string_json(value: serde_json::Value) -> crate::ReflectResult<Str
         })
 }
 
-#[pulsar_type(
-    serialize_json_with = serialize_string_json,
-    deserialize_json_with = deserialize_string_json
+#[cfg_attr(
+    feature = "prims-gpui",
+    pulsar_type(
+        serialize_json_with = serialize_string_json,
+        deserialize_json_with = deserialize_string_json,
+        editor = render_string_editor
+    )
+)]
+#[cfg_attr(
+    not(feature = "prims-gpui"),
+    pulsar_type(
+        serialize_json_with = serialize_string_json,
+        deserialize_json_with = deserialize_string_json
+    )
 )]
 #[allow(dead_code)]
 type RegisteredString = String;
+
+#[cfg(feature = "prims-gpui")]
+fn render_string_editor(args: &crate::PropertyEditorArgs<'_>, cx: &gpui::App) -> gpui::AnyElement {
+    use gpui::{prelude::*, *};
+    use ui::{ActiveTheme, Sizable, h_flex, input::Input};
+
+    let value = args.current_value.downcast_ref::<String>().cloned().unwrap_or_default();
+    h_flex()
+        .w_full()
+        .justify_between()
+        .items_center()
+        .gap_2()
+        .child(
+            div()
+                .text_sm()
+                .text_color(cx.theme().muted_foreground)
+                .child(args.display_name.to_string()),
+        )
+        .child(h_flex().items_center().gap_2().child(
+            if let Some(input) = args.get_widget::<gpui::Entity<ui::input::InputState>>() {
+                Input::new(&input)
+                    .xsmall()
+                    .w(gpui::px(160.0))
+                    .into_any_element()
+            } else {
+                div()
+                    .text_sm()
+                    .text_color(cx.theme().foreground)
+                    .child(value)
+                    .into_any_element()
+            },
+        ))
+        .into_any_element()
+}
 
 #[cfg(test)]
 mod tests {
