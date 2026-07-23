@@ -21,5 +21,5 @@ pulsar_reflection_derive = { workspace = true }
 uuid = { workspace = true }
 dashmap = { workspace = true }
 glam = { workspace = true, optional = true }
-gpui-ce = { git = "https://github.com/Far-Beyond-Pulsar/WGPUI", optional = true }
-ui = { git = "https://github.com/Far-Beyond-Pulsar/WGPUI-Component", optional = true }
+gpui-ce = { git = "https://github.com/Far-Beyond-Pulsar/WGPUI", rev = "98e8438c931e04eff640ecad4d2ca81a64a95bac", optional = true }
+ui = { git = "https://github.com/Far-Beyond-Pulsar/WGPUI-Component", rev = "49ba61231b490ab3a4edbb62728300e27440a70b", optional = true }
