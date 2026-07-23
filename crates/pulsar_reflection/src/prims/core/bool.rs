@@ -41,8 +41,8 @@ fn render_bool_editor(args: &crate::PropertyEditorArgs<'_>, cx: &gpui::App) -> g
     use gpui::{prelude::*, *};
     use ui::{ActiveTheme, Sizable, h_flex, switch::Switch};
 
-    let value = args.current_value.downcast_ref::<bool>().copied().unwrap_or(false);
-    let on_write = args.write_back.clone();
+    let value = args.current_json.as_bool().unwrap_or(false);
+    let on_toggle = args.on_bool_toggle.clone();
     let id = format!(
         "bool-{}-{}-{}",
         args.id_prefix, args.class_name, args.prop_name
@@ -63,10 +63,23 @@ fn render_bool_editor(args: &crate::PropertyEditorArgs<'_>, cx: &gpui::App) -> g
                 .checked(value)
                 .small()
                 .on_click(move |checked, window, cx| {
-                    (on_write)(Box::new(*checked), window, cx);
+                    (on_toggle)(*checked, window, cx);
                 }),
         )
         .into_any_element()
+}
+
+#[cfg(feature = "prims-gpui")]
+fn init_bool_editor(_args: &crate::PropertyEditorArgs<'_>, _window: &mut gpui::Window, _cx: &mut gpui::Context<()>) -> std::collections::HashMap<std::any::TypeId, std::sync::Arc<dyn std::any::Any + Send + Sync>> {
+    std::collections::HashMap::new()
+}
+
+#[cfg(feature = "prims-gpui")]
+inventory::submit! {
+    crate::UiPropertyEditorInitHint {
+        type_id: std::any::TypeId::of::<bool>(),
+        fn_ptr: crate::erase_init_widget_fn_ptr(init_bool_editor),
+    }
 }
 
 #[cfg(test)]

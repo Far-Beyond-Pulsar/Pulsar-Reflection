@@ -72,6 +72,19 @@ fn render_vec3_editor(args: &crate::PropertyEditorArgs<'_>, cx: &gpui::App) -> g
         .into_any_element()
 }
 
+#[cfg(feature = "prims-gpui")]
+fn init_vec3_editor(_args: &crate::PropertyEditorArgs<'_>, _window: &mut gpui::Window, _cx: &mut gpui::Context<()>) -> std::collections::HashMap<std::any::TypeId, std::sync::Arc<dyn std::any::Any + Send + Sync>> {
+    std::collections::HashMap::new()
+}
+
+#[cfg(feature = "prims-gpui")]
+inventory::submit! {
+    crate::UiPropertyEditorInitHint {
+        type_id: std::any::TypeId::of::<[f32; 3]>(),
+        fn_ptr: crate::erase_init_widget_fn_ptr(init_vec3_editor),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{JsonDeserializer, JsonSerializer, RUNTIME_TYPE_REGISTRY, Reflectable};

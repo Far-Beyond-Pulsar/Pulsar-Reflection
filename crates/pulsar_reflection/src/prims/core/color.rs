@@ -81,6 +81,24 @@ fn render_color_editor(args: &crate::PropertyEditorArgs<'_>, cx: &gpui::App) -> 
         .into_any_element()
 }
 
+#[cfg(feature = "prims-gpui")]
+fn init_color_editor(_args: &crate::PropertyEditorArgs<'_>, window: &mut gpui::Window, cx: &mut gpui::Context<()>) -> std::collections::HashMap<std::any::TypeId, std::sync::Arc<dyn std::any::Any + Send + Sync>> {
+    use gpui::{AppContext, Entity};
+    use ui::color_picker::ColorPickerState;
+    let mut widgets = std::collections::HashMap::new();
+    let picker: Entity<ColorPickerState> = cx.new(|cx| ColorPickerState::new(window, cx));
+    widgets.insert(std::any::TypeId::of::<Entity<ColorPickerState>>(), std::sync::Arc::new(picker) as std::sync::Arc<dyn std::any::Any + std::marker::Send + std::marker::Sync>);
+    widgets
+}
+
+#[cfg(feature = "prims-gpui")]
+inventory::submit! {
+    crate::UiPropertyEditorInitHint {
+        type_id: std::any::TypeId::of::<[f32; 4]>(),
+        fn_ptr: crate::erase_init_widget_fn_ptr(init_color_editor),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{JsonDeserializer, JsonSerializer, RUNTIME_TYPE_REGISTRY, Reflectable};

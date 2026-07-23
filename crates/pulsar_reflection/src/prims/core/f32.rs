@@ -40,7 +40,7 @@ fn render_f32_editor(args: &crate::PropertyEditorArgs<'_>, cx: &gpui::App) -> gp
     use gpui::{prelude::*, *};
     use ui::{ActiveTheme, Sizable, h_flex, input::NumberInput};
 
-    let value = args.current_value.downcast_ref::<f32>().copied().unwrap_or(0.0);
+    let value = args.current_json.as_f64().unwrap_or(0.0) as f32;
     h_flex()
         .w_full()
         .justify_between()
@@ -67,6 +67,28 @@ fn render_f32_editor(args: &crate::PropertyEditorArgs<'_>, cx: &gpui::App) -> gp
             },
         ))
         .into_any_element()
+}
+
+#[cfg(feature = "prims-gpui")]
+fn init_f32_editor(args: &crate::PropertyEditorArgs<'_>, window: &mut gpui::Window, cx: &mut gpui::Context<()>) -> std::collections::HashMap<std::any::TypeId, std::sync::Arc<dyn std::any::Any + Send + Sync>> {
+    use gpui::{AppContext, Entity};
+    use ui::input::InputState;
+    let mut widgets = std::collections::HashMap::new();
+    let input: Entity<InputState> = cx.new(|cx| InputState::new(window, cx));
+    let value = args.current_value.downcast_ref::<f32>().copied().unwrap_or(0.0);
+    input.update(cx, |state, cx| {
+        state.set_value(&format!("{:.3}", value), window, cx);
+    });
+    widgets.insert(std::any::TypeId::of::<Entity<InputState>>(), std::sync::Arc::new(input) as std::sync::Arc<dyn std::any::Any + std::marker::Send + std::marker::Sync>);
+    widgets
+}
+
+#[cfg(feature = "prims-gpui")]
+inventory::submit! {
+    crate::UiPropertyEditorInitHint {
+        type_id: std::any::TypeId::of::<f32>(),
+        fn_ptr: crate::erase_init_widget_fn_ptr(init_f32_editor),
+    }
 }
 
 #[cfg(test)]

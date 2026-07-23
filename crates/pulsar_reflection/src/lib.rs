@@ -75,22 +75,25 @@ pub use pulsar_reflection_derive::{Reflectable, pulsar_type};
 /// Widget state is carried as a type-erased map so the reflection crate has
 /// zero knowledge of what widget types exist.  Each render function retrieves
 /// its own stateful entity by concrete type via [`get_widget`].
-///
-/// Editors read the current value via [`current_value`] (downcast to their
-/// concrete type) and write changes via [`write_back`].  There is no
-/// type-specific branching in the render dispatch — the editor is chosen
-/// solely by [`type_info.type_id`](RuntimeTypeInfo::type_id) from the
-/// [`PROPERTY_EDITOR_REGISTRY`](crate::type_renderer::PROPERTY_EDITOR_REGISTRY).
 pub struct PropertyEditorArgs<'a> {
     pub id_prefix: &'a str,
     pub class_name: &'a str,
     pub display_name: &'a str,
     pub prop_name: &'a str,
     pub type_info: &'static RuntimeTypeInfo,
-    pub current_value: &'a dyn std::any::Any,
+    /// Current JSON-serialised value (legacy path).
+    pub current_json: &'a Value,
+    /// Current value as a type-erased reference (new path).
+    pub current_value: &'a dyn Any,
     pub widgets: std::collections::HashMap<std::any::TypeId, Arc<dyn std::any::Any + Send + Sync>>,
     #[cfg(feature = "prims-gpui")]
-    pub write_back: Arc<dyn Fn(Box<dyn std::any::Any + Send>, &mut gpui::Window, &mut gpui::App) + Send + Sync>,
+    pub on_bool_toggle: Arc<dyn Fn(bool, &mut gpui::Window, &mut gpui::App) + Send + Sync>,
+    #[cfg(feature = "prims-gpui")]
+    pub on_enum_select: Arc<dyn Fn(usize, &mut gpui::Window, &mut gpui::App) + Send + Sync>,
+    /// Write-back callback: stores a new value (new path).
+    #[cfg(feature = "prims-gpui")]
+    pub write_back:
+        Arc<dyn Fn(Box<dyn Any + Send>, &mut gpui::Window, &mut gpui::App) + Send + Sync>,
 }
 
 impl<'a> PropertyEditorArgs<'a> {
@@ -133,6 +136,37 @@ pub struct UiPropertyEditorHint {
 
 inventory::collect!(UiPropertyEditorHint);
 
+/// Separate inventory submission for per-type init-widget functions.
+/// Editors that need persistent widget state (InputState, ColorPickerState, etc.)
+/// submit a `UiPropertyEditorInitHint` alongside their render hint.
+///
+/// Defined unconditionally (no GPUI deps).  The `fn_ptr` is erased and
+/// transmuted back to `PropertyEditorInitFn` by the GPUI-side registry.
+pub struct UiPropertyEditorInitHint {
+    pub type_id: std::any::TypeId,
+    pub fn_ptr: fn(),
+}
+
+inventory::collect!(UiPropertyEditorInitHint);
+
+/// Init-widget function: creates any widget entities the editor needs and
+/// returns them keyed by `TypeId` so the framework can store and later
+/// supply them in `PropertyEditorArgs::widgets`.
+///
+/// The `Context<()>` parameter is paired with the `Window` from the
+/// property panel's render call.  The framework transmutes the panel's
+/// concrete `Context<V>` to `Context<()>` so the editor can call
+/// `cx.new(...)` to create child entities.
+#[cfg(feature = "prims-gpui")]
+pub type PropertyEditorInitFn = fn(
+    &PropertyEditorArgs<'_>,
+    &mut gpui::Window,
+    &mut gpui::Context<()>,
+) -> std::collections::HashMap<
+    std::any::TypeId,
+    std::sync::Arc<dyn std::any::Any + Send + Sync>,
+>;
+
 /// Erase a two-argument render function to the opaque `fn()` stored in
 /// [`UiPropertyEditorHint::fn_ptr`].
 ///
@@ -152,6 +186,18 @@ pub const fn erase_property_editor_fn_ptr(
 ) -> fn() {
     // SAFETY: all function pointers are pointer-sized, so this cast preserves
     // representation. The function signature is validated by the typed input.
+    unsafe { std::mem::transmute(f) }
+}
+
+/// Erase an init-widget function to the opaque `fn()` stored in
+/// [`UiPropertyEditorHint::init_fn_ptr`].
+///
+/// Gated behind `prims-gpui` (same reasoning as `erase_property_editor_fn_ptr`).
+#[cfg(feature = "prims-gpui")]
+pub const fn erase_init_widget_fn_ptr(
+    f: PropertyEditorInitFn,
+) -> fn() {
+    // SAFETY: all function pointers are pointer-sized.
     unsafe { std::mem::transmute(f) }
 }
 
