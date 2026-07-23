@@ -67,7 +67,7 @@ fn render_u64_editor(args: &crate::PropertyEditorArgs<'_>, cx: &gpui::App) -> gp
                 Button::new(id)
                     .label(label)
                     .xsmall()
-                    .ghost()
+                    .outline()
                     .dropdown_caret(true)
                     .dropdown_menu_with_anchor(
                         Corner::BottomRight,
