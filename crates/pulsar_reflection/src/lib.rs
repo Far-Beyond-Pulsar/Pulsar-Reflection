@@ -93,13 +93,11 @@ pub struct PropertyEditorArgs<'a> {
     pub display_name: &'a str,
     pub prop_name: &'a str,
     pub type_info: &'static RuntimeTypeInfo,
-    /// Current JSON-serialised value.
-    ///
-    /// **Deprecated** — always [`Value::Null`].  Read `current_value` and
-    /// downcast to the editor's own type instead.
-    pub current_json: &'a Value,
     /// Current value as a type-erased reference.  Downcast to the concrete
     /// type this editor was registered for.
+    ///
+    /// This is the *only* value channel — there is deliberately no JSON view.
+    /// Serialisation is the data source's concern, not the editor's.
     pub current_value: &'a dyn Any,
     #[cfg(feature = "prims-gpui")]
     pub write_back: PropertyWriteBack,
