@@ -23,3 +23,32 @@ pub mod glam;
 
 #[cfg(feature = "prims-helio")]
 pub mod helio;
+
+/// Shared layout for a built-in editor: muted label on the left, the editor's
+/// own control on the right.
+///
+/// Kept here so every primitive editor lays out identically without any of
+/// them having to agree on styling by hand.
+#[cfg(feature = "prims-gpui")]
+pub fn editor_row(
+    label: &str,
+    control: impl gpui::IntoElement,
+    cx: &gpui::App,
+) -> gpui::AnyElement {
+    use gpui::prelude::*;
+    use ui::{ActiveTheme, h_flex};
+
+    h_flex()
+        .w_full()
+        .justify_between()
+        .items_center()
+        .gap_2()
+        .child(
+            gpui::div()
+                .text_sm()
+                .text_color(cx.theme().muted_foreground)
+                .child(label.to_string()),
+        )
+        .child(control)
+        .into_any_element()
+}

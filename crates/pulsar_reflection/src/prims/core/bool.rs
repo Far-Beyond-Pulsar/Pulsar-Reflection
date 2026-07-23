@@ -2,16 +2,16 @@
 
 use crate::pulsar_type;
 
-// M3-alpha Task 2 (audit follow-up): `editor = render_bool_editor` registers a
+// M3-alpha Task 2 (audit follow-up): `editor = bool_editor` registers a
 // GPUI-typed property editor. `gpui-ce`/`ui` are optional deps of this crate
 // behind `prims-gpui` (see Cargo.toml), so the `editor` argument — and the
-// render fn it names — must only be present when that feature is enabled.
+// factory it names — must only be present when that feature is enabled.
 #[cfg_attr(
     feature = "prims-gpui",
     pulsar_type(
         serialize_json_with = serialize_bool_json,
         deserialize_json_with = deserialize_bool_json,
-        editor = render_bool_editor
+        editor = bool_editor
     )
 )]
 #[cfg_attr(
@@ -36,50 +36,73 @@ fn deserialize_bool_json(value: serde_json::Value) -> crate::ReflectResult<bool>
         })
 }
 
-#[cfg(feature = "prims-gpui")]
-fn render_bool_editor(args: &crate::PropertyEditorArgs<'_>, cx: &gpui::App) -> gpui::AnyElement {
-    use gpui::{prelude::*, *};
-    use ui::{ActiveTheme, Sizable, h_flex, switch::Switch};
+// ── Editor ────────────────────────────────────────────────────────────────────
 
-    let value = args.current_json.as_bool().unwrap_or(false);
-    let on_toggle = args.on_bool_toggle.clone();
-    let id = format!(
-        "bool-{}-{}-{}",
-        args.id_prefix, args.class_name, args.prop_name
-    );
-    h_flex()
-        .w_full()
-        .justify_between()
-        .items_center()
-        .gap_2()
-        .child(
-            div()
-                .text_sm()
-                .text_color(cx.theme().muted_foreground)
-                .child(args.display_name.to_string()),
-        )
-        .child(
-            Switch::new(id)
-                .checked(value)
+/// Property editor for `bool` — a switch.
+///
+/// Needs no child entities: the switch is an element, so the click handler can
+/// write back directly.
+#[cfg(feature = "prims-gpui")]
+pub struct BoolEditor {
+    label: String,
+    id: gpui::SharedString,
+    value: bool,
+    write_back: crate::PropertyWriteBack,
+}
+
+#[cfg(feature = "prims-gpui")]
+impl gpui::Render for BoolEditor {
+    fn render(
+        &mut self,
+        _window: &mut gpui::Window,
+        cx: &mut gpui::Context<Self>,
+    ) -> impl gpui::IntoElement {
+        use ui::{Sizable, switch::Switch};
+
+        let write_back = self.write_back.clone();
+        crate::prims::editor_row(
+            &self.label,
+            Switch::new(self.id.clone())
+                .checked(self.value)
                 .small()
                 .on_click(move |checked, window, cx| {
-                    (on_toggle)(*checked, window, cx);
+                    (write_back)(Box::new(*checked), window, cx);
                 }),
+            cx,
         )
-        .into_any_element()
-}
-
-#[cfg(feature = "prims-gpui")]
-fn init_bool_editor(_args: &crate::PropertyEditorArgs<'_>, _window: &mut gpui::Window, _cx: &mut gpui::Context<()>) -> std::collections::HashMap<std::any::TypeId, std::sync::Arc<dyn std::any::Any + Send + Sync>> {
-    std::collections::HashMap::new()
-}
-
-#[cfg(feature = "prims-gpui")]
-inventory::submit! {
-    crate::UiPropertyEditorInitHint {
-        type_id: std::any::TypeId::of::<bool>(),
-        fn_ptr: crate::erase_init_widget_fn_ptr(init_bool_editor),
     }
+}
+
+#[cfg(feature = "prims-gpui")]
+fn bool_editor(
+    args: &crate::PropertyEditorArgs<'_>,
+    _window: &mut gpui::Window,
+    cx: &mut gpui::App,
+) -> crate::BoundPropertyEditor {
+    use gpui::AppContext as _;
+
+    let label = args.display_name.to_string();
+    let id: gpui::SharedString = format!(
+        "bool-{}-{}-{}",
+        args.id_prefix, args.class_name, args.prop_name
+    )
+    .into();
+    let value = args.current_value.downcast_ref::<bool>().copied().unwrap_or(false);
+    let write_back = args.write_back.clone();
+
+    let entity = cx.new(|_| BoolEditor {
+        label,
+        id,
+        value,
+        write_back,
+    });
+
+    crate::BoundPropertyEditor::new(entity, |editor: &mut BoolEditor, value: &bool, _window, cx| {
+        if editor.value != *value {
+            editor.value = *value;
+            cx.notify();
+        }
+    })
 }
 
 #[cfg(test)]

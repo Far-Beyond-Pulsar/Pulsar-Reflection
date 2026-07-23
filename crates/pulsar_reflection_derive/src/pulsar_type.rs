@@ -116,7 +116,7 @@ pub fn expand_primitive_alias(
     let clone_impl = quote! { typed.clone() };
 
     // NOTE (M3-alpha Task 2): this `editor_submit` block is GPUI-typed
-    // (`&::gpui::App`, `::gpui::AnyElement`) and is only emitted when the
+    // (`&mut ::gpui::Window`, `&mut ::gpui::App`) and is only emitted when the
     // caller passes `editor = ...`. This macro does NOT gate it behind any
     // feature itself — a `#[cfg(feature = "...")]` embedded here would be
     // evaluated against whichever crate invokes `#[pulsar_type]` (e.g.
@@ -134,8 +134,9 @@ pub fn expand_primitive_alias(
                     fn_ptr: ::pulsar_reflection::erase_property_editor_fn_ptr(
                         #editor_fn as fn(
                             &::pulsar_reflection::PropertyEditorArgs<'_>,
-                            &::gpui::App
-                        ) -> ::gpui::AnyElement
+                            &mut ::gpui::Window,
+                            &mut ::gpui::App
+                        ) -> ::pulsar_reflection::BoundPropertyEditor
                     ),
                 }
             }

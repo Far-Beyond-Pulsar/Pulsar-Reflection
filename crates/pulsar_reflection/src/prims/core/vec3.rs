@@ -9,7 +9,7 @@ use crate::pulsar_type;
     pulsar_type(
         serialize_json_with = serialize_vec3_json,
         deserialize_json_with = deserialize_vec3_json,
-        editor = render_vec3_editor
+        editor = vec3_editor
     )
 )]
 #[cfg_attr(
@@ -47,42 +47,65 @@ fn deserialize_vec3_json(value: serde_json::Value) -> crate::ReflectResult<[f32;
     ])
 }
 
-#[cfg(feature = "prims-gpui")]
-fn render_vec3_editor(args: &crate::PropertyEditorArgs<'_>, cx: &gpui::App) -> gpui::AnyElement {
-    use gpui::{prelude::*, *};
-    use ui::{ActiveTheme, h_flex};
+// ── Editor ────────────────────────────────────────────────────────────────────
 
-    h_flex()
-        .w_full()
-        .justify_between()
-        .items_center()
-        .gap_2()
-        .child(
-            div()
-                .text_sm()
-                .text_color(cx.theme().muted_foreground)
-                .child(args.display_name.to_string()),
-        )
-        .child(
-            div()
+/// Property editor for `[f32; 3]` — read-only display.
+///
+/// No child entities and no write-back: position/rotation/scale are edited
+/// through the viewport gizmo, not this row.
+#[cfg(feature = "prims-gpui")]
+pub struct Vec3Editor {
+    label: String,
+    value: [f32; 3],
+}
+
+#[cfg(feature = "prims-gpui")]
+impl gpui::Render for Vec3Editor {
+    fn render(
+        &mut self,
+        _window: &mut gpui::Window,
+        cx: &mut gpui::Context<Self>,
+    ) -> impl gpui::IntoElement {
+        use gpui::prelude::*;
+        use ui::ActiveTheme;
+
+        let [x, y, z] = self.value;
+        crate::prims::editor_row(
+            &self.label,
+            gpui::div()
                 .text_sm()
                 .text_color(cx.theme().foreground)
-                .child(format!("{:?}", args.current_json)),
+                .child(format!("{x:.3}, {y:.3}, {z:.3}")),
+            cx,
         )
-        .into_any_element()
-}
-
-#[cfg(feature = "prims-gpui")]
-fn init_vec3_editor(_args: &crate::PropertyEditorArgs<'_>, _window: &mut gpui::Window, _cx: &mut gpui::Context<()>) -> std::collections::HashMap<std::any::TypeId, std::sync::Arc<dyn std::any::Any + Send + Sync>> {
-    std::collections::HashMap::new()
-}
-
-#[cfg(feature = "prims-gpui")]
-inventory::submit! {
-    crate::UiPropertyEditorInitHint {
-        type_id: std::any::TypeId::of::<[f32; 3]>(),
-        fn_ptr: crate::erase_init_widget_fn_ptr(init_vec3_editor),
     }
+}
+
+#[cfg(feature = "prims-gpui")]
+fn vec3_editor(
+    args: &crate::PropertyEditorArgs<'_>,
+    _window: &mut gpui::Window,
+    cx: &mut gpui::App,
+) -> crate::BoundPropertyEditor {
+    use gpui::AppContext as _;
+
+    let label = args.display_name.to_string();
+    let value = args
+        .current_value
+        .downcast_ref::<[f32; 3]>()
+        .copied()
+        .unwrap_or([0.0; 3]);
+
+    let entity = cx.new(|_| Vec3Editor { label, value });
+    crate::BoundPropertyEditor::new(
+        entity,
+        |editor: &mut Vec3Editor, value: &[f32; 3], _window, cx| {
+            if editor.value != *value {
+                editor.value = *value;
+                cx.notify();
+            }
+        },
+    )
 }
 
 #[cfg(test)]

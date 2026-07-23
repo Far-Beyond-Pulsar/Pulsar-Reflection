@@ -70,40 +70,106 @@ pub use type_renderer::{
 // Re-export derive macro
 pub use pulsar_reflection_derive::{Reflectable, pulsar_type};
 
-/// Arguments passed to every registered property editor render function.
+/// Write-back callback: hands a new, concretely-typed value back to whatever
+/// owns the underlying data (scene database, prefab asset, node property, …).
 ///
-/// Widget state is carried as a type-erased map so the reflection crate has
-/// zero knowledge of what widget types exist.  Each render function retrieves
-/// its own stateful entity by concrete type via [`get_widget`].
+/// The `Box<dyn Any + Send>` always holds the property's own Rust type — the
+/// same type its editor was registered for — so the receiving side can round
+/// it through [`RuntimeTypeRegistry::serialize_json_for_any`] without knowing
+/// what that type is.
+#[cfg(feature = "prims-gpui")]
+pub type PropertyWriteBack =
+    Arc<dyn Fn(Box<dyn Any + Send>, &mut gpui::Window, &mut gpui::App) + Send + Sync>;
+
+/// Arguments handed to a property editor's [factory](PropertyEditorFactory)
+/// when it is first constructed for a given property.
+///
+/// Deliberately carries *no* widget state: an editor creates and owns whatever
+/// child entities it needs, so the reflection crate — and the framework layer
+/// above it — never learn that widgets exist at all.
 pub struct PropertyEditorArgs<'a> {
     pub id_prefix: &'a str,
     pub class_name: &'a str,
     pub display_name: &'a str,
     pub prop_name: &'a str,
     pub type_info: &'static RuntimeTypeInfo,
-    /// Current JSON-serialised value (legacy path).
+    /// Current JSON-serialised value.
+    ///
+    /// **Deprecated** — always [`Value::Null`].  Read `current_value` and
+    /// downcast to the editor's own type instead.
     pub current_json: &'a Value,
-    /// Current value as a type-erased reference (new path).
+    /// Current value as a type-erased reference.  Downcast to the concrete
+    /// type this editor was registered for.
     pub current_value: &'a dyn Any,
-    pub widgets: std::collections::HashMap<std::any::TypeId, Arc<dyn std::any::Any + Send + Sync>>,
     #[cfg(feature = "prims-gpui")]
-    pub on_bool_toggle: Arc<dyn Fn(bool, &mut gpui::Window, &mut gpui::App) + Send + Sync>,
-    #[cfg(feature = "prims-gpui")]
-    pub on_enum_select: Arc<dyn Fn(usize, &mut gpui::Window, &mut gpui::App) + Send + Sync>,
-    /// Write-back callback: stores a new value (new path).
-    #[cfg(feature = "prims-gpui")]
-    pub write_back:
-        Arc<dyn Fn(Box<dyn Any + Send>, &mut gpui::Window, &mut gpui::App) + Send + Sync>,
+    pub write_back: PropertyWriteBack,
 }
 
-impl<'a> PropertyEditorArgs<'a> {
-    pub fn get_widget<T: std::any::Any + Clone>(&self) -> Option<T> {
-        self.widgets
-            .get(&std::any::TypeId::of::<T>())
-            .and_then(|arc| arc.downcast_ref::<T>())
-            .cloned()
+// ── Bound editor instances ────────────────────────────────────────────────────
+
+/// A live property-editor instance: the renderable view plus a type-erased
+/// hook for pushing a fresh value into it.
+///
+/// The framework caches one of these per property and calls `set_value` on
+/// every render so externally-driven changes (undo, a viewport drag, another
+/// panel) still reach the editor.  `set_value` receives the value as
+/// `&dyn Any`; only the editor that produced the closure knows the concrete
+/// type, which is what keeps widget knowledge out of the framework.
+#[cfg(feature = "prims-gpui")]
+#[derive(Clone)]
+pub struct BoundPropertyEditor {
+    /// Type-erased renderable handle to the editor entity.
+    pub view: gpui::AnyView,
+    /// Push a fresh value into the editor.  A no-op if the value is unchanged.
+    pub set_value: Arc<dyn Fn(&dyn Any, &mut gpui::Window, &mut gpui::App) + Send + Sync>,
+}
+
+#[cfg(feature = "prims-gpui")]
+impl BoundPropertyEditor {
+    /// Bind an editor entity together with a typed value-setter.
+    ///
+    /// `set` is invoked only when the incoming `&dyn Any` actually holds a `T`,
+    /// so editors never have to write downcasting boilerplate themselves.
+    pub fn new<T, V>(
+        entity: gpui::Entity<V>,
+        set: impl Fn(&mut V, &T, &mut gpui::Window, &mut gpui::Context<V>) + Send + Sync + 'static,
+    ) -> Self
+    where
+        T: 'static,
+        V: gpui::Render,
+    {
+        let for_set = entity.clone();
+        Self {
+            view: entity.into(),
+            set_value: Arc::new(move |value, window, cx| {
+                let Some(typed) = value.downcast_ref::<T>() else {
+                    return;
+                };
+                for_set.update(cx, |editor, cx| set(editor, typed, window, cx));
+            }),
+        }
+    }
+
+    /// Bind an editor entity that has no value to refresh (read-only or
+    /// self-contained editors).
+    pub fn stateless<V: gpui::Render>(entity: gpui::Entity<V>) -> Self {
+        Self {
+            view: entity.into(),
+            set_value: Arc::new(|_, _, _| {}),
+        }
     }
 }
+
+/// Constructs a property editor for one property.
+///
+/// Called once per `(owner, property)` pair; the resulting
+/// [`BoundPropertyEditor`] is cached and reused for the lifetime of that pair.
+/// The `&mut App` is enough to call `cx.new(...)`, which hands the editor a
+/// correctly-typed `&mut Context<Self>` for creating child entities and
+/// registering its own subscriptions.
+#[cfg(feature = "prims-gpui")]
+pub type PropertyEditorFactory =
+    fn(&PropertyEditorArgs<'_>, &mut gpui::Window, &mut gpui::App) -> BoundPropertyEditor;
 
 // ── UI property-editor hint ───────────────────────────────────────────────────
 
@@ -114,8 +180,7 @@ impl<'a> PropertyEditorArgs<'a> {
 ///
 /// The `fn_ptr` field stores a function pointer erased to `fn()` so that this
 /// type remains free of GPUI dependencies.  The framework layer (`ui_common`)
-/// is responsible for transmuting it back to the correct concrete signature:
-/// `fn(&PropertyEditorArgs<'_>, &gpui::App) -> gpui::AnyElement`.
+/// is responsible for transmuting it back to [`PropertyEditorFactory`].
 ///
 /// Storing as `fn()` (rather than `usize`) allows the `inventory::submit!`
 /// static-initialiser to compile without triggering E0658 (fn ptr → int cast
@@ -123,57 +188,27 @@ impl<'a> PropertyEditorArgs<'a> {
 ///
 /// # Safety contract
 ///
-/// Only submit function pointers whose actual Rust type matches the above
-/// signature.  The transmute in `ui_common` is safe by construction as long as
-/// this invariant is upheld.
+/// Only submit function pointers whose actual Rust type is
+/// [`PropertyEditorFactory`].  The transmute in `ui_common` is safe by
+/// construction as long as this invariant is upheld — which
+/// [`erase_property_editor_fn_ptr`] enforces at compile time.
 pub struct UiPropertyEditorHint {
     /// [`TypeId`](std::any::TypeId) of the type this editor handles.
     pub type_id: std::any::TypeId,
-    /// Erased function pointer — actual type is `PropertyEditorRenderFn`.
+    /// Erased function pointer — actual type is [`PropertyEditorFactory`].
     /// Cast to `fn()` so it can appear in `const` / `static` initialisers.
     pub fn_ptr: fn(),
 }
 
 inventory::collect!(UiPropertyEditorHint);
 
-/// Separate inventory submission for per-type init-widget functions.
-/// Editors that need persistent widget state (InputState, ColorPickerState, etc.)
-/// submit a `UiPropertyEditorInitHint` alongside their render hint.
-///
-/// Defined unconditionally (no GPUI deps).  The `fn_ptr` is erased and
-/// transmuted back to `PropertyEditorInitFn` by the GPUI-side registry.
-pub struct UiPropertyEditorInitHint {
-    pub type_id: std::any::TypeId,
-    pub fn_ptr: fn(),
-}
-
-inventory::collect!(UiPropertyEditorInitHint);
-
-/// Init-widget function: creates any widget entities the editor needs and
-/// returns them keyed by `TypeId` so the framework can store and later
-/// supply them in `PropertyEditorArgs::widgets`.
-///
-/// The `Context<()>` parameter is paired with the `Window` from the
-/// property panel's render call.  The framework transmutes the panel's
-/// concrete `Context<V>` to `Context<()>` so the editor can call
-/// `cx.new(...)` to create child entities.
-#[cfg(feature = "prims-gpui")]
-pub type PropertyEditorInitFn = fn(
-    &PropertyEditorArgs<'_>,
-    &mut gpui::Window,
-    &mut gpui::Context<()>,
-) -> std::collections::HashMap<
-    std::any::TypeId,
-    std::sync::Arc<dyn std::any::Any + Send + Sync>,
->;
-
-/// Erase a two-argument render function to the opaque `fn()` stored in
+/// Erase a [`PropertyEditorFactory`] to the opaque `fn()` stored in
 /// [`UiPropertyEditorHint::fn_ptr`].
 ///
 /// All Rust function pointer types are pointer-sized, so transmuting between
 /// them preserves size.  The input is intentionally constrained to the one
-/// valid property-editor signature so registration sites fail fast at compile
-/// time when a mismatched function is provided.
+/// valid factory signature so registration sites fail fast at compile time
+/// when a mismatched function is provided.
 ///
 /// This is a `const fn` so it can be called inside `inventory::submit!`
 /// static initialisers emitted by proc macros.
@@ -181,23 +216,9 @@ pub type PropertyEditorInitFn = fn(
 /// Gated behind `prims-gpui` (M3-alpha Task 2): the signature is GPUI-typed,
 /// so it can only exist when the crate is compiled with GPUI available.
 #[cfg(feature = "prims-gpui")]
-pub const fn erase_property_editor_fn_ptr(
-    f: fn(&PropertyEditorArgs<'_>, &gpui::App) -> gpui::AnyElement,
-) -> fn() {
+pub const fn erase_property_editor_fn_ptr(f: PropertyEditorFactory) -> fn() {
     // SAFETY: all function pointers are pointer-sized, so this cast preserves
     // representation. The function signature is validated by the typed input.
-    unsafe { std::mem::transmute(f) }
-}
-
-/// Erase an init-widget function to the opaque `fn()` stored in
-/// [`UiPropertyEditorHint::init_fn_ptr`].
-///
-/// Gated behind `prims-gpui` (same reasoning as `erase_property_editor_fn_ptr`).
-#[cfg(feature = "prims-gpui")]
-pub const fn erase_init_widget_fn_ptr(
-    f: PropertyEditorInitFn,
-) -> fn() {
-    // SAFETY: all function pointers are pointer-sized.
     unsafe { std::mem::transmute(f) }
 }
 

@@ -9,7 +9,7 @@ use crate::pulsar_type;
     pulsar_type(
         serialize_json_with = serialize_i32_json,
         deserialize_json_with = deserialize_i32_json,
-        editor = render_i32_editor
+        editor = i32_editor
     )
 )]
 #[cfg_attr(
@@ -35,60 +35,133 @@ fn deserialize_i32_json(value: serde_json::Value) -> crate::ReflectResult<i32> {
         })
 }
 
-#[cfg(feature = "prims-gpui")]
-fn render_i32_editor(args: &crate::PropertyEditorArgs<'_>, cx: &gpui::App) -> gpui::AnyElement {
-    use gpui::{prelude::*, *};
-    use ui::{ActiveTheme, Sizable, h_flex, input::NumberInput};
+// ── Editor ────────────────────────────────────────────────────────────────────
 
-    let value = args.current_json.as_i64().unwrap_or(0) as i32;
-    h_flex()
-        .w_full()
-        .justify_between()
-        .items_center()
-        .gap_2()
-        .child(
-            div()
-                .text_sm()
-                .text_color(cx.theme().muted_foreground)
-                .child(args.display_name.to_string()),
-        )
-        .child(h_flex().items_center().gap_2().child(
-            if let Some(input) = args.get_widget::<gpui::Entity<ui::input::InputState>>() {
-                NumberInput::new(&input)
-                    .xsmall()
-                    .w(gpui::px(92.0))
-                    .into_any_element()
-            } else {
-                div()
-                    .text_sm()
-                    .text_color(cx.theme().foreground)
-                    .child(value.to_string())
-                    .into_any_element()
-            },
-        ))
-        .into_any_element()
+/// Property editor for `i32` — a stepping number input.
+///
+/// Owns its `InputState` child entity and both of the subscriptions that feed
+/// it: text edits and increment/decrement clicks.
+#[cfg(feature = "prims-gpui")]
+pub struct I32Editor {
+    label: String,
+    input: gpui::Entity<ui::input::InputState>,
+    value: i32,
+    write_back: crate::PropertyWriteBack,
+    _subs: Vec<gpui::Subscription>,
 }
 
 #[cfg(feature = "prims-gpui")]
-fn init_i32_editor(args: &crate::PropertyEditorArgs<'_>, window: &mut gpui::Window, cx: &mut gpui::Context<()>) -> std::collections::HashMap<std::any::TypeId, std::sync::Arc<dyn std::any::Any + Send + Sync>> {
-    use gpui::{AppContext, Entity};
-    use ui::input::InputState;
-    let mut widgets = std::collections::HashMap::new();
-    let input: Entity<InputState> = cx.new(|cx| InputState::new(window, cx));
-    let value = args.current_value.downcast_ref::<i32>().copied().unwrap_or(0);
-    input.update(cx, |state, cx| {
-        state.set_value(&value.to_string(), window, cx);
-    });
-    widgets.insert(std::any::TypeId::of::<Entity<InputState>>(), std::sync::Arc::new(input) as std::sync::Arc<dyn std::any::Any + std::marker::Send + std::marker::Sync>);
-    widgets
-}
+impl I32Editor {
+    fn new(
+        args: &crate::PropertyEditorArgs<'_>,
+        window: &mut gpui::Window,
+        cx: &mut gpui::Context<Self>,
+    ) -> Self {
+        use gpui::AppContext as _;
+        use ui::input::{InputEvent, InputState, NumberInputEvent, StepAction};
 
-#[cfg(feature = "prims-gpui")]
-inventory::submit! {
-    crate::UiPropertyEditorInitHint {
-        type_id: std::any::TypeId::of::<i32>(),
-        fn_ptr: crate::erase_init_widget_fn_ptr(init_i32_editor),
+        let value = args.current_value.downcast_ref::<i32>().copied().unwrap_or(0);
+        let input = cx.new(|cx| InputState::new(window, cx));
+        input.update(cx, |state, cx| {
+            state.set_value(value.to_string(), window, cx);
+        });
+
+        let subs = vec![
+            cx.subscribe_in(
+                &input,
+                window,
+                |this: &mut Self, input, event: &InputEvent, window, cx| {
+                    if !matches!(event, InputEvent::Change | InputEvent::Blur) {
+                        return;
+                    }
+                    let text = input.read(cx).text().to_string();
+                    let Ok(parsed) = text.trim().parse::<i32>() else {
+                        return;
+                    };
+                    this.commit(parsed, window, cx);
+                },
+            ),
+            cx.subscribe_in(
+                &input,
+                window,
+                |this: &mut Self, _input, event: &NumberInputEvent, window, cx| {
+                    let NumberInputEvent::Step { action, .. } = event;
+                    let stepped = match action {
+                        StepAction::Increment => this.value.saturating_add(1),
+                        StepAction::Decrement => this.value.saturating_sub(1),
+                    };
+                    this.value = stepped;
+                    this.input.update(cx, |state, cx| {
+                        state.set_value(stepped.to_string(), window, cx);
+                    });
+                    (this.write_back)(Box::new(stepped), window, cx);
+                },
+            ),
+        ];
+
+        Self {
+            label: args.display_name.to_string(),
+            input,
+            value,
+            write_back: args.write_back.clone(),
+            _subs: subs,
+        }
     }
+
+    /// Record a value the user typed and push it back to the data source.
+    ///
+    /// Does not rewrite the input text — the user is mid-edit and owns it.
+    fn commit(&mut self, value: i32, window: &mut gpui::Window, cx: &mut gpui::Context<Self>) {
+        if self.value == value {
+            return;
+        }
+        self.value = value;
+        (self.write_back)(Box::new(value), window, cx);
+    }
+
+    /// Accept a value that changed elsewhere.  The equality guard stops the
+    /// framework's per-render push from echoing back through the subscription.
+    fn set_value(&mut self, value: i32, window: &mut gpui::Window, cx: &mut gpui::Context<Self>) {
+        if self.value == value {
+            return;
+        }
+        self.value = value;
+        self.input.update(cx, |state, cx| {
+            state.set_value(value.to_string(), window, cx);
+        });
+    }
+}
+
+#[cfg(feature = "prims-gpui")]
+impl gpui::Render for I32Editor {
+    fn render(
+        &mut self,
+        _window: &mut gpui::Window,
+        cx: &mut gpui::Context<Self>,
+    ) -> impl gpui::IntoElement {
+        use ui::{Sizable, input::NumberInput};
+
+        crate::prims::editor_row(
+            &self.label,
+            NumberInput::new(&self.input).xsmall().w(gpui::px(92.0)),
+            cx,
+        )
+    }
+}
+
+#[cfg(feature = "prims-gpui")]
+fn i32_editor(
+    args: &crate::PropertyEditorArgs<'_>,
+    window: &mut gpui::Window,
+    cx: &mut gpui::App,
+) -> crate::BoundPropertyEditor {
+    use gpui::AppContext as _;
+
+    let entity = cx.new(|cx| I32Editor::new(args, window, cx));
+    crate::BoundPropertyEditor::new(
+        entity,
+        |editor: &mut I32Editor, value: &i32, window, cx| editor.set_value(*value, window, cx),
+    )
 }
 
 #[cfg(test)]

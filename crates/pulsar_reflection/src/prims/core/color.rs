@@ -8,7 +8,7 @@ use crate::pulsar_type;
     pulsar_type(
         serialize_json_with = serialize_color_json,
         deserialize_json_with = deserialize_color_json,
-        editor = render_color_editor
+        editor = color_editor
     )
 )]
 #[cfg_attr(
@@ -47,56 +47,159 @@ fn deserialize_color_json(value: serde_json::Value) -> crate::ReflectResult<[f32
     ])
 }
 
-#[cfg(feature = "prims-gpui")]
-fn render_color_editor(args: &crate::PropertyEditorArgs<'_>, cx: &gpui::App) -> gpui::AnyElement {
-    use gpui::{Corner, prelude::*, *};
-    use ui::{ActiveTheme, color_picker::ColorPicker, h_flex};
+// ── Editor ────────────────────────────────────────────────────────────────────
 
-    h_flex()
-        .w_full()
-        .justify_between()
-        .items_center()
-        .gap_2()
-        .child(
-            div()
-                .text_sm()
-                .text_color(cx.theme().muted_foreground)
-                .child(args.display_name.to_string()),
-        )
-        .child(
-            if let Some(state) =
-                args.get_widget::<gpui::Entity<ui::color_picker::ColorPickerState>>()
-            {
-                ColorPicker::new(&state)
-                    .anchor(Corner::BottomRight)
-                    .into_any_element()
-            } else {
-                div()
-                    .text_sm()
-                    .text_color(cx.theme().foreground)
-                    .child(format!("{:?}", args.current_json))
-                    .into_any_element()
+/// Convert linear RGBA to the HSLA the colour picker speaks.
+#[cfg(feature = "prims-gpui")]
+pub fn rgba_to_hsla([r, g, b, a]: [f32; 4]) -> gpui::Hsla {
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let l = (max + min) / 2.0;
+    let s = if max == min {
+        0.0
+    } else if l < 0.5 {
+        (max - min) / (max + min)
+    } else {
+        (max - min) / (2.0 - max - min)
+    };
+    let h = if max == min {
+        0.0
+    } else if max == r {
+        ((g - b) / (max - min)).rem_euclid(6.0) / 6.0
+    } else if max == g {
+        ((b - r) / (max - min) + 2.0) / 6.0
+    } else {
+        ((r - g) / (max - min) + 4.0) / 6.0
+    };
+    gpui::Hsla { h, s, l, a }
+}
+
+/// Convert the colour picker's HSLA back to the linear RGBA we store.
+#[cfg(feature = "prims-gpui")]
+pub fn hsla_to_rgba(gpui::Hsla { h, s, l, a }: gpui::Hsla) -> [f32; 4] {
+    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+    let x = c * (1.0 - ((h * 6.0).rem_euclid(2.0) - 1.0).abs());
+    let m = l - c / 2.0;
+    let (r1, g1, b1) = match (h * 6.0) as u32 {
+        0 => (c, x, 0.0),
+        1 => (x, c, 0.0),
+        2 => (0.0, c, x),
+        3 => (0.0, x, c),
+        4 => (x, 0.0, c),
+        _ => (c, 0.0, x),
+    };
+    [r1 + m, g1 + m, b1 + m, a]
+}
+
+/// Property editor for `[f32; 4]` — a colour picker.
+///
+/// Owns its `ColorPickerState` child entity and the subscription that turns
+/// picker changes into write-backs.
+#[cfg(feature = "prims-gpui")]
+pub struct ColorEditor {
+    label: String,
+    picker: gpui::Entity<ui::color_picker::ColorPickerState>,
+    value: [f32; 4],
+    write_back: crate::PropertyWriteBack,
+    _subs: Vec<gpui::Subscription>,
+}
+
+#[cfg(feature = "prims-gpui")]
+impl ColorEditor {
+    fn new(
+        args: &crate::PropertyEditorArgs<'_>,
+        window: &mut gpui::Window,
+        cx: &mut gpui::Context<Self>,
+    ) -> Self {
+        use gpui::AppContext as _;
+        use ui::color_picker::{ColorPickerEvent, ColorPickerState};
+
+        let value = args
+            .current_value
+            .downcast_ref::<[f32; 4]>()
+            .copied()
+            .unwrap_or([1.0, 1.0, 1.0, 1.0]);
+
+        let picker = cx.new(|cx| ColorPickerState::new(window, cx));
+        picker.update(cx, |state, cx| {
+            state.set_value(rgba_to_hsla(value), window, cx);
+        });
+
+        let subs = vec![cx.subscribe_in(
+            &picker,
+            window,
+            |this: &mut Self, _picker, event: &ColorPickerEvent, window, cx| {
+                let ColorPickerEvent::Change(Some(hsla)) = event else {
+                    return;
+                };
+                let rgba = hsla_to_rgba(*hsla);
+                if this.value == rgba {
+                    return;
+                }
+                this.value = rgba;
+                (this.write_back)(Box::new(rgba), window, cx);
             },
-        )
-        .into_any_element()
-}
+        )];
 
-#[cfg(feature = "prims-gpui")]
-fn init_color_editor(_args: &crate::PropertyEditorArgs<'_>, window: &mut gpui::Window, cx: &mut gpui::Context<()>) -> std::collections::HashMap<std::any::TypeId, std::sync::Arc<dyn std::any::Any + Send + Sync>> {
-    use gpui::{AppContext, Entity};
-    use ui::color_picker::ColorPickerState;
-    let mut widgets = std::collections::HashMap::new();
-    let picker: Entity<ColorPickerState> = cx.new(|cx| ColorPickerState::new(window, cx));
-    widgets.insert(std::any::TypeId::of::<Entity<ColorPickerState>>(), std::sync::Arc::new(picker) as std::sync::Arc<dyn std::any::Any + std::marker::Send + std::marker::Sync>);
-    widgets
-}
-
-#[cfg(feature = "prims-gpui")]
-inventory::submit! {
-    crate::UiPropertyEditorInitHint {
-        type_id: std::any::TypeId::of::<[f32; 4]>(),
-        fn_ptr: crate::erase_init_widget_fn_ptr(init_color_editor),
+        Self {
+            label: args.display_name.to_string(),
+            picker,
+            value,
+            write_back: args.write_back.clone(),
+            _subs: subs,
+        }
     }
+
+    /// Accept a colour that changed elsewhere.  The equality guard stops the
+    /// framework's per-render push from echoing back through the subscription.
+    fn set_value(
+        &mut self,
+        value: [f32; 4],
+        window: &mut gpui::Window,
+        cx: &mut gpui::Context<Self>,
+    ) {
+        if self.value == value {
+            return;
+        }
+        self.value = value;
+        self.picker.update(cx, |state, cx| {
+            state.set_value(rgba_to_hsla(value), window, cx);
+        });
+    }
+}
+
+#[cfg(feature = "prims-gpui")]
+impl gpui::Render for ColorEditor {
+    fn render(
+        &mut self,
+        _window: &mut gpui::Window,
+        cx: &mut gpui::Context<Self>,
+    ) -> impl gpui::IntoElement {
+        use ui::color_picker::ColorPicker;
+
+        crate::prims::editor_row(
+            &self.label,
+            ColorPicker::new(&self.picker).anchor(gpui::Corner::BottomRight),
+            cx,
+        )
+    }
+}
+
+#[cfg(feature = "prims-gpui")]
+fn color_editor(
+    args: &crate::PropertyEditorArgs<'_>,
+    window: &mut gpui::Window,
+    cx: &mut gpui::App,
+) -> crate::BoundPropertyEditor {
+    use gpui::AppContext as _;
+
+    let entity = cx.new(|cx| ColorEditor::new(args, window, cx));
+    crate::BoundPropertyEditor::new(
+        entity,
+        |editor: &mut ColorEditor, value: &[f32; 4], window, cx| {
+            editor.set_value(*value, window, cx)
+        },
+    )
 }
 
 #[cfg(test)]
