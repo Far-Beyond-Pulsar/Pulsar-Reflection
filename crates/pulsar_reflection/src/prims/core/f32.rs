@@ -150,6 +150,7 @@ impl gpui::Render for F32Editor {
         _window: &mut gpui::Window,
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
+        use gpui::Styled as _;
         use ui::{Sizable, input::NumberInput};
 
         crate::prims::editor_row(

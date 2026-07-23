@@ -115,6 +115,7 @@ impl gpui::Render for StringEditor {
         _window: &mut gpui::Window,
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
+        use gpui::Styled as _;
         use ui::{Sizable, input::Input};
 
         crate::prims::editor_row(
