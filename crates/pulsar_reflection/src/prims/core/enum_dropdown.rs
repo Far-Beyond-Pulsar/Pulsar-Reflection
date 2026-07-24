@@ -6,6 +6,8 @@
 //! from selected variant indices. This avoids needing to know the concrete enum
 //! type at compile time.
 
+use std::any::Any;
+
 // ── Editor entity ────────────────────────────────────────────────────────────
 
 /// Property editor for any unit enum (C-like enum with no data variants).
