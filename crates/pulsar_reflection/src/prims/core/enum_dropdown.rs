@@ -70,7 +70,7 @@ impl gpui::Render for EnumDropdownEditor {
                                     if let Ok(val) = crate::RUNTIME_TYPE_REGISTRY
                                         .deserialize_json_for_type(type_info, json)
                                     {
-                                        (write_back)(val, window, cx);
+                                        (write_back)(val as Box<dyn Any + Send>, window, cx);
                                     }
                                 }),
                         );
@@ -119,7 +119,7 @@ pub fn enum_dropdown_editor(
     });
 
     crate::BoundPropertyEditor {
-        view: entity.into(),
+        view: entity.clone().into(),
         set_value: std::sync::Arc::new(move |value, window, cx| {
             let new_value = crate::RUNTIME_TYPE_REGISTRY
                 .serialize_json_for_any(value)
