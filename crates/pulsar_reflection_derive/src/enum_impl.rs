@@ -131,5 +131,22 @@ pub fn generate_enum_impl(
                 },
             }
         }
+
+        // Auto-register a generic enum dropdown editor for all unit enums.
+        // The UiPropertyEditorHint / enum_dropdown_editor / gpui types are
+        // behind `#[cfg(feature = "prims-gpui")]` in pulsar_reflection, so
+        // this hint only compiles when that feature is enabled on the dep.
+        ::pulsar_reflection::inventory::submit! {
+            ::pulsar_reflection::UiPropertyEditorHint {
+                type_id: std::any::TypeId::of::<#name #ty_generics>(),
+                fn_ptr: ::pulsar_reflection::erase_property_editor_fn_ptr(
+                    ::pulsar_reflection::enum_dropdown_editor as fn(
+                        &::pulsar_reflection::PropertyEditorArgs<'_>,
+                        &mut ::gpui::Window,
+                        &mut ::gpui::App
+                    ) -> ::pulsar_reflection::BoundPropertyEditor
+                ),
+            }
+        }
     }
 }

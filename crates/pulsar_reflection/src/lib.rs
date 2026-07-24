@@ -70,6 +70,10 @@ pub use type_renderer::{
 // Re-export derive macro
 pub use pulsar_reflection_derive::{Reflectable, pulsar_type};
 
+// Re-export generic enum dropdown editor (auto-registered for all enums)
+#[cfg(feature = "prims-gpui")]
+pub use prims::core::enum_dropdown::enum_dropdown_editor;
+
 /// Write-back callback: hands a new, concretely-typed value back to whatever
 /// owns the underlying data (scene database, prefab asset, node property, …).
 ///

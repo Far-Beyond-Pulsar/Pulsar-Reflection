@@ -1,6 +1,7 @@
 //! Core primitive type registrations.
 
 mod bool;
+mod enum_dropdown;
 mod f32;
 mod f64;
 mod i32;
