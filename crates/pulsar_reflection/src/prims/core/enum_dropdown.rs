@@ -72,7 +72,11 @@ impl gpui::Render for EnumDropdownEditor {
                                     if let Ok(val) = crate::RUNTIME_TYPE_REGISTRY
                                         .deserialize_json_for_type(type_info, json)
                                     {
-                                        (write_back)(val as Box<dyn Any + Send>, window, cx);
+                                        // SAFETY: All unit enums registered with the reflection
+                                        // system implement Send (C-like enums with no heap data).
+                                        let val: Box<dyn Any + Send> =
+                                            unsafe { std::mem::transmute(val) };
+                                        (write_back)(val, window, cx);
                                     }
                                 }),
                         );
