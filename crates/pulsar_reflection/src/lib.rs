@@ -24,6 +24,9 @@ extern crate self as pulsar_reflection;
 
 pub mod registry;
 
+// Dynamic (non-`EngineClass`) method dispatch — subsystems, singletons, etc.
+pub mod dyn_registry;
+
 // New runtime type reflection system
 pub mod dynamic_types;
 pub mod json_codec;
@@ -44,6 +47,12 @@ use std::sync::Arc;
 // Re-export for convenience
 pub use registry::{
     ComponentMethodRegistration, EngineClassRegistration, EngineClassRegistry, REGISTRY,
+};
+
+// Re-export dynamic (non-`EngineClass`) method dispatch
+pub use dyn_registry::{
+    DynDispatchError, DynMethodArgs, DynMethodCaller, DynMethodMetadata, DynMethodRegistration,
+    DynMethodRegistry, DynMethodReturnValue, DYN_METHOD_REGISTRY,
 };
 
 // Re-export inventory for derive macro
