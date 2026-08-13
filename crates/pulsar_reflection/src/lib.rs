@@ -282,7 +282,21 @@ pub fn registered_scene_props_classes() -> Vec<&'static str> {
 
 /// Scene object state available to runtime component behaviors.
 pub struct RuntimeComponentOwner<'a> {
-    pub scene_object_id: &'a str,
+    /// Stable numeric identity of the owning scene object.
+    ///
+    /// Deliberately a bare `u64`, not a string and not any particular
+    /// engine's entity-handle type: this crate has no dependency on (and
+    /// must not gain one on) whatever ECS/scene-storage crate a given
+    /// engine embeds it with -- `pulsar_scenedb` itself already depends on
+    /// `pulsar_reflection` (see its `subsystem.rs`/re-exported
+    /// `pulsar_reflection` module), so the reverse dependency would be
+    /// circular. Callers that DO use `pulsar_scenedb::Entity` pass
+    /// `entity.bits()` here (documented on `Entity` as its serialization
+    /// form) and can reconstruct it with `Entity::from_bits(...)` on the
+    /// other side; this also replaces what `scene_id_to_tag` used to be
+    /// for (hashing a *string* id down to a numeric one) -- a caller with
+    /// an already-numeric identity has no hashing step left to do.
+    pub scene_object_id: u64,
     pub position: [f32; 3],
     pub rotation: [f32; 3],
     pub scale: [f32; 3],
@@ -290,6 +304,11 @@ pub struct RuntimeComponentOwner<'a> {
 }
 
 /// Hash a SceneDb string ID to a compact `u64` tag for storage in helio actors.
+///
+/// Only still needed by callers whose object identity is genuinely
+/// string-shaped. A caller whose identity is already numeric (e.g.
+/// `pulsar_scenedb::Entity::bits()`, see [`RuntimeComponentOwner::scene_object_id`])
+/// has nothing to hash -- use that value directly.
 ///
 /// Components call this to compute the [`ObjectDescriptor::user_tag`] /
 /// [`SceneActor::light_with_tag`] value before inserting an actor.  The picker
@@ -459,6 +478,18 @@ pub trait ComponentRuntimeContext {
 }
 
 /// Trait for component-owned runtime behavior projection.
+///
+/// `sync_component` takes `component: &Self` -- a real, typed value, not
+/// `serde_json::Value` -- because by the time anything implements this
+/// trait for a concrete type, that type IS the live representation (a
+/// `World`/ECS component, or whatever storage the embedding engine uses).
+/// JSON, if it exists at all, is the embedding engine's save/load wire
+/// format, parsed into a `Self` once at that boundary -- never a concern of
+/// this trait. Dispatch across many concrete `Self` types still goes
+/// through one type-erased `fn` pointer via [`RuntimeBehaviorRegistration`]
+/// (a plain `inventory`-collected static, so it can't itself be generic) --
+/// see that struct's doc for how the erasure/downcast is bridged, normally
+/// generated for you by `#[register_runtime_behavior]`.
 pub trait ComponentRuntimeBehavior {
     /// Reflection class name this runtime behavior handles.
     const CLASS_NAME: &'static str;
@@ -467,32 +498,45 @@ pub trait ComponentRuntimeBehavior {
     fn sync_component(
         owner: &RuntimeComponentOwner,
         component_index: usize,
-        component_data: &Value,
+        component: &Self,
         context: &mut dyn ComponentRuntimeContext,
     );
 }
 
 /// Inventory registration entry for runtime behavior handlers.
+///
+/// `sync`'s third parameter is `&dyn Any` holding a `Self` of whatever
+/// concrete type this registration is for -- `inventory::submit!` requires
+/// a concrete, non-generic static value, so a generic `fn sync_component`
+/// can't be stored directly here the way it can on
+/// [`ComponentRuntimeBehavior`] itself. `#[register_runtime_behavior]`
+/// generates the small downcast-and-forward shim that bridges the two, so
+/// component authors never write this by hand.
 pub struct RuntimeBehaviorRegistration {
     pub class_name: &'static str,
-    pub sync: fn(&RuntimeComponentOwner, usize, &Value, &mut dyn ComponentRuntimeContext),
+    pub sync: fn(&RuntimeComponentOwner, usize, &dyn Any, &mut dyn ComponentRuntimeContext),
 }
 
 inventory::collect!(RuntimeBehaviorRegistration);
 
 /// Apply registered runtime behavior for one component class.
 ///
+/// `component` is a `&dyn Any` holding whatever concrete type `class_name`
+/// resolves to -- the matching registration's `sync` shim downcasts it (and
+/// reports a [`ComponentRuntimeContext::report_error`], not a panic, on a
+/// caller bug that passes the wrong type for the given `class_name`).
+///
 /// Returns true if a registered behavior handled this class.
 pub fn apply_runtime_behavior_for_class(
     class_name: &str,
     owner: &RuntimeComponentOwner,
     component_index: usize,
-    component_data: &Value,
+    component: &dyn Any,
     context: &mut dyn ComponentRuntimeContext,
 ) -> bool {
     for registration in inventory::iter::<RuntimeBehaviorRegistration> {
         if registration.class_name == class_name {
-            (registration.sync)(owner, component_index, component_data, context);
+            (registration.sync)(owner, component_index, component, context);
             return true;
         }
     }
