@@ -281,6 +281,18 @@ pub fn registered_scene_props_classes() -> Vec<&'static str> {
 }
 
 /// Scene object state available to runtime component behaviors.
+///
+/// `scene_object_id` deliberately stays `&'a str` in *this* change --
+/// switching it to a numeric identity (e.g. `pulsar_scenedb::Entity::bits()`)
+/// is a separate migration with its own blast radius (every
+/// `RuntimeComponentOwner` construction site, plus every `sync_component`
+/// body that currently formats/logs/keys off the string), scoped to
+/// whichever engine-side phase actually replaces string scene-object ids
+/// with real entity identity -- not bundled into the `component_data: &Value
+/// -> component: &Self` change this trait signature makes here. Splitting
+/// them keeps this change purely about JSON leaving the live path, with no
+/// forced changes to callers that haven't made that separate identity
+/// migration yet.
 pub struct RuntimeComponentOwner<'a> {
     pub scene_object_id: &'a str,
     pub position: [f32; 3],
@@ -459,6 +471,25 @@ pub trait ComponentRuntimeContext {
 }
 
 /// Trait for component-owned runtime behavior projection.
+///
+/// `sync_component` takes `component: &Self` -- a real, typed value, not
+/// `serde_json::Value` -- so an implementation never hand-parses JSON: it
+/// reads its own fields directly. The dispatch boundary this trait is
+/// reached through ([`RuntimeBehaviorRegistration`]/
+/// [`apply_runtime_behavior_for_class`]) still deals in `&serde_json::Value`
+/// today, because most embedding-engine callers (e.g. a scene-file loader)
+/// only have JSON on hand at the point they know *which* component class
+/// they're looking at -- deserializing into the concrete `Self` is exactly
+/// what a per-class dispatch step is for. `#[register_runtime_behavior]`
+/// generates that one `serde_json::from_value::<Self>(..)` call for you (see
+/// [`RuntimeBehaviorRegistration`]'s doc), so this is still a single,
+/// centralized JSON boundary -- not, as before this trait's `component`
+/// parameter was typed, one hand-rolled `.as_object().and_then(...)` parser
+/// per component. A caller whose data is *already* a live `Self` (e.g. a
+/// `World`/ECS-backed engine) can skip JSON entirely by calling
+/// `Self::sync_component` directly instead of going through
+/// `apply_runtime_behavior_for_class` -- the JSON step is this dispatch
+/// path's concern, not the trait's.
 pub trait ComponentRuntimeBehavior {
     /// Reflection class name this runtime behavior handles.
     const CLASS_NAME: &'static str;
@@ -467,12 +498,23 @@ pub trait ComponentRuntimeBehavior {
     fn sync_component(
         owner: &RuntimeComponentOwner,
         component_index: usize,
-        component_data: &Value,
+        component: &Self,
         context: &mut dyn ComponentRuntimeContext,
     );
 }
 
 /// Inventory registration entry for runtime behavior handlers.
+///
+/// `sync`'s third parameter is still `&serde_json::Value` -- this is the
+/// type-erased dispatch boundary (`inventory::submit!` requires a concrete,
+/// non-generic static value, so a generic `fn sync_component` can't be
+/// stored here directly the way it can on [`ComponentRuntimeBehavior`]
+/// itself), and JSON is the one payload shape every registration can accept
+/// without knowing the other components' concrete types.
+/// `#[register_runtime_behavior]` generates the small
+/// deserialize-and-forward shim that bridges `&Value` to the real typed
+/// `sync_component(component: &Self, ..)`, so component authors never write
+/// that conversion by hand.
 pub struct RuntimeBehaviorRegistration {
     pub class_name: &'static str,
     pub sync: fn(&RuntimeComponentOwner, usize, &Value, &mut dyn ComponentRuntimeContext),
@@ -481,6 +523,11 @@ pub struct RuntimeBehaviorRegistration {
 inventory::collect!(RuntimeBehaviorRegistration);
 
 /// Apply registered runtime behavior for one component class.
+///
+/// The matching registration's `sync` shim deserializes `component_data`
+/// into that class's concrete type before calling the real, typed
+/// `ComponentRuntimeBehavior::sync_component` -- a parse failure is reported
+/// via [`ComponentRuntimeContext::report_error`], not a panic.
 ///
 /// Returns true if a registered behavior handled this class.
 pub fn apply_runtime_behavior_for_class(
