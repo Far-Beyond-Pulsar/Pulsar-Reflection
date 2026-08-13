@@ -281,22 +281,20 @@ pub fn registered_scene_props_classes() -> Vec<&'static str> {
 }
 
 /// Scene object state available to runtime component behaviors.
+///
+/// `scene_object_id` deliberately stays `&'a str` in *this* change --
+/// switching it to a numeric identity (e.g. `pulsar_scenedb::Entity::bits()`)
+/// is a separate migration with its own blast radius (every
+/// `RuntimeComponentOwner` construction site, plus every `sync_component`
+/// body that currently formats/logs/keys off the string), scoped to
+/// whichever engine-side phase actually replaces string scene-object ids
+/// with real entity identity -- not bundled into the `component_data: &Value
+/// -> component: &Self` change this trait signature makes here. Splitting
+/// them keeps this change purely about JSON leaving the live path, with no
+/// forced changes to callers that haven't made that separate identity
+/// migration yet.
 pub struct RuntimeComponentOwner<'a> {
-    /// Stable numeric identity of the owning scene object.
-    ///
-    /// Deliberately a bare `u64`, not a string and not any particular
-    /// engine's entity-handle type: this crate has no dependency on (and
-    /// must not gain one on) whatever ECS/scene-storage crate a given
-    /// engine embeds it with -- `pulsar_scenedb` itself already depends on
-    /// `pulsar_reflection` (see its `subsystem.rs`/re-exported
-    /// `pulsar_reflection` module), so the reverse dependency would be
-    /// circular. Callers that DO use `pulsar_scenedb::Entity` pass
-    /// `entity.bits()` here (documented on `Entity` as its serialization
-    /// form) and can reconstruct it with `Entity::from_bits(...)` on the
-    /// other side; this also replaces what `scene_id_to_tag` used to be
-    /// for (hashing a *string* id down to a numeric one) -- a caller with
-    /// an already-numeric identity has no hashing step left to do.
-    pub scene_object_id: u64,
+    pub scene_object_id: &'a str,
     pub position: [f32; 3],
     pub rotation: [f32; 3],
     pub scale: [f32; 3],
@@ -304,11 +302,6 @@ pub struct RuntimeComponentOwner<'a> {
 }
 
 /// Hash a SceneDb string ID to a compact `u64` tag for storage in helio actors.
-///
-/// Only still needed by callers whose object identity is genuinely
-/// string-shaped. A caller whose identity is already numeric (e.g.
-/// `pulsar_scenedb::Entity::bits()`, see [`RuntimeComponentOwner::scene_object_id`])
-/// has nothing to hash -- use that value directly.
 ///
 /// Components call this to compute the [`ObjectDescriptor::user_tag`] /
 /// [`SceneActor::light_with_tag`] value before inserting an actor.  The picker
