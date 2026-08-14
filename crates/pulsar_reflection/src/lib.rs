@@ -586,6 +586,24 @@ pub trait EngineClass: Any + Send + Sync {
 
     /// Clone into a boxed trait object
     fn clone_boxed(&self) -> Box<dyn EngineClass>;
+
+    /// Serialize this instance's *current* field values to JSON, in the same
+    /// shape a component's own `#[derive(Serialize)]` produces (including
+    /// `#[sub_props]` nesting -- this is the whole struct, not a per-property
+    /// flat map).
+    ///
+    /// Overridden by `#[engine_class(..., serialize, ...)]`'s generated impl
+    /// for classes that actually derive `Serialize`. The default here exists
+    /// only so adding this method isn't a breaking change for classes that
+    /// don't -- callers (the properties panel, `SceneDatabase`) that need
+    /// this to succeed should treat `Err` as "this class doesn't support the
+    /// typed JSON round trip," not as a bug.
+    fn to_json(&self) -> Result<Value, String> {
+        Err(format!(
+            "{} does not support to_json (no `serialize` on #[engine_class(...)])",
+            std::any::type_name::<Self>()
+        ))
+    }
 }
 
 /// Marker trait for structs that are sub-property groups, not standalone components.
