@@ -5,6 +5,7 @@
 
 use crate::{EngineClass, MethodMetadata};
 use once_cell::sync::Lazy;
+use serde_json::Value;
 use std::collections::HashMap;
 
 /// Registration entry for auto-discovery
@@ -14,6 +15,12 @@ pub struct EngineClassRegistration {
     pub name: &'static str,
     pub category: Option<&'static str>,
     pub constructor: fn() -> Box<dyn EngineClass>,
+    /// Deserialize a whole instance of this class from JSON, in the same
+    /// shape [`EngineClass::to_json`] produces. `None` for classes that
+    /// don't derive `Deserialize` (no `deserialize` on their
+    /// `#[engine_class(...)]` attribute) -- the properties panel and
+    /// `SceneDatabase` fall back to the flat-JSON path for those.
+    pub from_json: Option<fn(&Value) -> Result<Box<dyn EngineClass>, String>>,
 }
 
 // Collect all engine class registrations at link time
@@ -34,6 +41,7 @@ inventory::collect!(ComponentMethodRegistration);
 struct RegistryEntry {
     constructor: fn() -> Box<dyn EngineClass>,
     category: Option<&'static str>,
+    from_json: Option<fn(&Value) -> Result<Box<dyn EngineClass>, String>>,
 }
 
 /// Global registry of all engine classes
@@ -55,6 +63,7 @@ impl EngineClassRegistry {
                 RegistryEntry {
                     constructor: registration.constructor,
                     category: registration.category,
+                    from_json: registration.from_json,
                 },
             );
         }
@@ -107,6 +116,25 @@ impl EngineClassRegistry {
         self.classes
             .get(class_name)
             .map(|entry| (entry.constructor)())
+    }
+
+    /// Create an instance of `class_name` hydrated from `data` (the same
+    /// whole-instance JSON shape [`EngineClass::to_json`] produces), instead
+    /// of a bare `Default`.
+    ///
+    /// Returns `None` if `class_name` isn't registered at all, or if it's
+    /// registered but doesn't support the typed JSON round trip (no
+    /// `deserialize` on its `#[engine_class(...)]` attribute) -- callers
+    /// should fall back to the flat-JSON path in that case, same as an
+    /// unregistered class.
+    pub fn create_instance_from_json(
+        &self,
+        class_name: &str,
+        data: &Value,
+    ) -> Option<Result<Box<dyn EngineClass>, String>> {
+        let entry = self.classes.get(class_name)?;
+        let from_json = entry.from_json?;
+        Some(from_json(data))
     }
 
     /// Check if a class is registered
@@ -183,6 +211,14 @@ mod tests {
         // Test unknown class
         assert!(registry.create_instance("NonExistentClass").is_none());
         assert!(!registry.has_class("NonExistentClass"));
+    }
+
+    #[test]
+    fn create_instance_from_json_is_none_for_an_unregistered_class() {
+        let registry = &*REGISTRY;
+        assert!(registry
+            .create_instance_from_json("NonExistentClass", &Value::Null)
+            .is_none());
     }
 
     #[test]
