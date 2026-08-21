@@ -112,7 +112,7 @@ pub fn generate_enum_impl(
 
         ::pulsar_reflection::inventory::submit! {
             ::pulsar_reflection::RuntimeTypeRegistration {
-                type_info: &#type_info_name,
+                type_info: <#name #ty_generics as ::pulsar_reflection::Reflectable>::type_info,
                 serialize_json: |value: &dyn ::std::any::Any| {
                     let typed = value.downcast_ref::<#name #ty_generics>().ok_or_else(|| {
                         ::pulsar_reflection::ReflectError::TypeMismatch {

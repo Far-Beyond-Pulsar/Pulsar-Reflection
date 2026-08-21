@@ -186,7 +186,7 @@ pub fn expand_primitive_alias(
 
         ::pulsar_reflection::inventory::submit! {
             ::pulsar_reflection::RuntimeTypeRegistration {
-                type_info: &#type_info_name,
+                type_info: <#target_ty as ::pulsar_reflection::Reflectable>::type_info,
                 serialize_json: |value: &dyn ::std::any::Any| {
                     let typed = value.downcast_ref::<#target_ty>().ok_or_else(|| {
                         ::pulsar_reflection::ReflectError::TypeMismatch {
