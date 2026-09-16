@@ -59,6 +59,11 @@ pub struct RuntimeTypeRegistry {
 impl RuntimeTypeRegistry {
     /// Create a new registry from inventory
     fn new() -> Self {
+        #[cfg(feature = "prims-core")]
+        crate::prims::core::ensure_registered();
+        #[cfg(feature = "prims-std")]
+        crate::prims::std::ensure_registered();
+
         let mut types = HashMap::new();
         let mut by_name = HashMap::new();
 

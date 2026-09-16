@@ -108,10 +108,10 @@ pub fn expand_primitive_alias(
     let deserialize_json_with = override_deserialize_json_with.clone().unwrap();
 
     let json_serialize_value = quote! {
-        (#serialize_json_with as fn(&#target_ty) -> ::pulsar_reflection::ReflectResult<::serde_json::Value>)(typed)
+        (#serialize_json_with as fn(&#target_ty) -> ::pulsar_reflection::ReflectResult<::pulsar_reflection::serde_json::Value>)(typed)
     };
     let json_deserialize_value = quote! {
-        (#deserialize_json_with as fn(::serde_json::Value) -> ::pulsar_reflection::ReflectResult<#target_ty>)(value)
+        (#deserialize_json_with as fn(::pulsar_reflection::serde_json::Value) -> ::pulsar_reflection::ReflectResult<#target_ty>)(value)
     };
     let clone_impl = quote! { typed.clone() };
 
@@ -196,7 +196,7 @@ pub fn expand_primitive_alias(
                     })?;
                     #json_serialize_value
                 },
-                deserialize_json: |value: ::serde_json::Value| {
+                deserialize_json: |value: ::pulsar_reflection::serde_json::Value| {
                     let typed: #target_ty = #json_deserialize_value?;
                     Ok(::std::boxed::Box::new(#clone_impl) as ::std::boxed::Box<dyn ::std::any::Any>)
                 },
