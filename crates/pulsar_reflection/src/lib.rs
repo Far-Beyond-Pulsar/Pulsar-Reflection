@@ -41,6 +41,7 @@ pub mod type_traits;
 // Primitive type implementations
 pub mod prims;
 
+pub use serde_json;
 use serde_json::Value;
 use std::any::{Any, TypeId};
 use std::collections::{HashMap, HashSet};
@@ -60,7 +61,6 @@ pub use dyn_registry::{
 
 // Re-export inventory for derive macro
 pub use inventory;
-pub use serde_json;
 
 // Re-export runtime type system
 pub use json_codec::{JsonDeserializer, JsonSerializer};

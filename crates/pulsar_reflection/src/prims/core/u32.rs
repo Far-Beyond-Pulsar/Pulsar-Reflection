@@ -15,7 +15,7 @@ fn serialize_u32_json(value: &u32) -> crate::ReflectResult<serde_json::Value> {
 fn deserialize_u32_json(value: serde_json::Value) -> crate::ReflectResult<u32> {
     value
         .as_u64()
-        .map(|v| v as u32)
+        .and_then(|v| u32::try_from(v).ok())
         .ok_or_else(|| crate::ReflectError::TypeMismatch {
             expected: "u32",
             found: format!("{:?}", value),
