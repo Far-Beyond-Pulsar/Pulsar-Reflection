@@ -35,7 +35,10 @@ impl Health {
 
     #[reflect_method(name = "make")]
     pub fn with_value(value: f32) -> Health {
-        Health { value, log: Vec::new() }
+        Health {
+            value,
+            log: Vec::new(),
+        }
     }
 
     #[reflect_method]
@@ -78,9 +81,12 @@ fn args(values: Vec<Box<dyn Any>>) -> Vec<Box<dyn Any>> {
 
 #[test]
 fn registers_marked_methods_by_type_id() {
-    let mut names: Vec<_> = methods_for::<Health>().iter().map(|m| m.name).collect();
+    let mut names: Vec<_> = methods_for::<Health>().iter().map(|m| m.name()).collect();
     names.sort_unstable();
-    assert_eq!(names, ["current", "damage", "heal", "is_alive", "make", "note", "take_log"]);
+    assert_eq!(
+        names,
+        ["current", "damage", "heal", "is_alive", "make", "note", "take_log"]
+    );
     assert!(pulsar_reflection::methods_of(TypeId::of::<Dead>()).is_empty());
 }
 
@@ -88,49 +94,66 @@ fn registers_marked_methods_by_type_id() {
 fn signature_metadata() {
     let current = find_method(TypeId::of::<Health>(), "current").unwrap();
     assert_eq!(current.receiver, ReceiverKind::Ref);
-    assert!(current.flags.side_effect_free && current.flags.deterministic);
-    assert_eq!(current.attr("category"), Some("Combat"));
-    assert_eq!(current.doc, "Remaining hit points.");
-    assert!(current.ret.unwrap().is::<f32>());
+    assert!(current.info.flags.side_effect_free && current.info.flags.deterministic);
+    assert_eq!(current.info.attr("category"), Some("Combat"));
+    assert_eq!(current.info.doc, "Remaining hit points.");
+    assert!(current.info.ret.unwrap().is::<f32>());
 
     let damage = find_method(TypeId::of::<Health>(), "damage").unwrap();
     assert_eq!(damage.receiver, ReceiverKind::Mut);
-    assert!(damage.ret.is_none());
-    assert_eq!(damage.params[0].name, "amount");
-    assert!(damage.params[0].ty.is::<f32>());
+    assert!(damage.info.ret.is_none());
+    assert_eq!(damage.info.params[0].name, "amount");
+    assert!(damage.info.params[0].ty.is::<f32>());
 
     let make = find_method(TypeId::of::<Health>(), "make").unwrap();
     assert_eq!(make.receiver, ReceiverKind::None);
 
     let note = find_method(TypeId::of::<Health>(), "note").unwrap();
-    assert!(note.params[0].ty.is::<String>());
-    assert_eq!(note.params[0].mode, PassMode::Ref);
-    assert!(note.params[1].ty.is::<Vec<String>>());
+    assert!(note.info.params[0].ty.is::<String>());
+    assert_eq!(note.info.params[0].mode, PassMode::Ref);
+    assert!(note.info.params[1].ty.is::<Vec<String>>());
 
     let heal = find_method(TypeId::of::<Health>(), "heal").unwrap();
-    assert!(heal.ret.unwrap().is::<f32>());
+    assert!(heal.info.ret.unwrap().is::<f32>());
 
     let alive = find_method(TypeId::of::<Health>(), "is_alive").unwrap();
-    assert!(alive.flags.deterministic && !alive.flags.side_effect_free);
+    assert!(alive.info.flags.deterministic && !alive.info.flags.side_effect_free);
 }
 
 #[test]
 fn invoke_calls_through() {
-    let mut health = Health { value: 10.0, log: Vec::new() };
+    let mut health = Health {
+        value: 10.0,
+        log: Vec::new(),
+    };
     let damage = find_method(TypeId::of::<Health>(), "damage").unwrap();
-    let out = damage.call(Receiver::Mut(&mut health), &mut args(vec![Box::new(3.0f32)])).unwrap();
+    let out = damage
+        .call(
+            Receiver::Mut(&mut health),
+            &mut args(vec![Box::new(3.0f32)]),
+        )
+        .unwrap();
     assert!(out.is_none());
     assert_eq!(health.value, 7.0);
 
     // `&self` methods accept a mutable receiver too.
     let current = find_method(TypeId::of::<Health>(), "current").unwrap();
-    let out = current.call(Receiver::Ref(&health), &mut []).unwrap().unwrap();
+    let out = current
+        .call(Receiver::Ref(&health), &mut [])
+        .unwrap()
+        .unwrap();
     assert_eq!(*out.downcast::<f32>().unwrap(), 7.0);
-    let out = current.call(Receiver::Mut(&mut health), &mut []).unwrap().unwrap();
+    let out = current
+        .call(Receiver::Mut(&mut health), &mut [])
+        .unwrap()
+        .unwrap();
     assert_eq!(*out.downcast::<f32>().unwrap(), 7.0);
 
     let make = find_method(TypeId::of::<Health>(), "make").unwrap();
-    let out = make.call(Receiver::None, &mut args(vec![Box::new(5.0f32)])).unwrap().unwrap();
+    let out = make
+        .call(Receiver::None, &mut args(vec![Box::new(5.0f32)]))
+        .unwrap()
+        .unwrap();
     assert_eq!(out.downcast::<Health>().unwrap().value, 5.0);
 }
 
@@ -138,17 +161,27 @@ fn invoke_calls_through() {
 fn borrowed_and_out_params() {
     let mut health = Health::default();
     let note = find_method(TypeId::of::<Health>(), "note").unwrap();
-    let mut call_args =
-        args(vec![Box::new("hit".to_string()), Box::new(vec!["a".to_string(), "b".to_string()])]);
-    let out = note.call(Receiver::Mut(&mut health), &mut call_args).unwrap().unwrap();
+    let mut call_args = args(vec![
+        Box::new("hit".to_string()),
+        Box::new(vec!["a".to_string(), "b".to_string()]),
+    ]);
+    let out = note
+        .call(Receiver::Mut(&mut health), &mut call_args)
+        .unwrap()
+        .unwrap();
     assert_eq!(*out.downcast::<usize>().unwrap(), 1);
     // Borrowed arguments stay in their slots.
     assert_eq!(call_args[0].downcast_ref::<String>().unwrap(), "hit");
 
     let take_log = find_method(TypeId::of::<Health>(), "take_log").unwrap();
     let mut call_args = args(vec![Box::new(Vec::<String>::new())]);
-    take_log.call(Receiver::Mut(&mut health), &mut call_args).unwrap();
-    assert_eq!(call_args[0].downcast_ref::<Vec<String>>().unwrap(), &["hit a,b".to_string()]);
+    take_log
+        .call(Receiver::Mut(&mut health), &mut call_args)
+        .unwrap();
+    assert_eq!(
+        call_args[0].downcast_ref::<Vec<String>>().unwrap(),
+        &["hit a,b".to_string()]
+    );
     assert!(health.log.is_empty());
 }
 
@@ -156,34 +189,65 @@ fn borrowed_and_out_params() {
 fn fallible_methods_report_err() {
     let heal = find_method(TypeId::of::<Health>(), "heal").unwrap();
     let mut dead = Health::default();
-    let err = heal.call(Receiver::Mut(&mut dead), &mut args(vec![Box::new(1.0f32)])).unwrap_err();
+    let err = heal
+        .call(Receiver::Mut(&mut dead), &mut args(vec![Box::new(1.0f32)]))
+        .unwrap_err();
     assert_eq!(err, CallError::Failed("already dead".into()));
 
-    let mut alive = Health { value: 1.0, log: Vec::new() };
-    let out = heal.call(Receiver::Mut(&mut alive), &mut args(vec![Box::new(1.0f32)])).unwrap();
+    let mut alive = Health {
+        value: 1.0,
+        log: Vec::new(),
+    };
+    let out = heal
+        .call(Receiver::Mut(&mut alive), &mut args(vec![Box::new(1.0f32)]))
+        .unwrap();
     assert_eq!(*out.unwrap().downcast::<f32>().unwrap(), 2.0);
 }
 
 #[test]
 fn rejects_bad_calls_without_side_effects() {
-    let mut health = Health { value: 10.0, log: Vec::new() };
+    let mut health = Health {
+        value: 10.0,
+        log: Vec::new(),
+    };
     let damage = find_method(TypeId::of::<Health>(), "damage").unwrap();
 
-    let err = damage.call(Receiver::Mut(&mut health), &mut []).unwrap_err();
-    assert_eq!(err, CallError::ArgCount { expected: 1, found: 0 });
+    let err = damage
+        .call(Receiver::Mut(&mut health), &mut [])
+        .unwrap_err();
+    assert_eq!(
+        err,
+        CallError::ArgCount {
+            expected: 1,
+            found: 0
+        }
+    );
 
     let mut wrong = args(vec![Box::new(3.0f64)]);
-    let err = damage.call(Receiver::Mut(&mut health), &mut wrong).unwrap_err();
+    let err = damage
+        .call(Receiver::Mut(&mut health), &mut wrong)
+        .unwrap_err();
     assert!(matches!(err, CallError::ArgType { index: 0, .. }));
     // A rejected by-value argument is not consumed.
     assert!(wrong[0].is::<f64>());
 
-    let err = damage.call(Receiver::Ref(&health), &mut args(vec![Box::new(1.0f32)])).unwrap_err();
-    assert_eq!(err, CallError::ReceiverMissing { needed: ReceiverKind::Mut });
+    let err = damage
+        .call(Receiver::Ref(&health), &mut args(vec![Box::new(1.0f32)]))
+        .unwrap_err();
+    assert_eq!(
+        err,
+        CallError::ReceiverMissing {
+            needed: ReceiverKind::Mut
+        }
+    );
 
     let mut not_health = Dead;
-    let err =
-        damage.call(Receiver::Mut(&mut not_health), &mut args(vec![Box::new(1.0f32)])).unwrap_err();
+    let err = damage
+        .call(
+            Receiver::Mut(&mut not_health),
+            &mut args(vec![Box::new(1.0f32)]),
+        )
+        .unwrap_err();
     assert!(matches!(err, CallError::ReceiverType { .. }));
 
     assert_eq!(health.value, 10.0);

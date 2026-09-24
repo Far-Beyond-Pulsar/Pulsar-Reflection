@@ -83,7 +83,7 @@ pub use type_renderer::{
 // Re-export derive macro
 pub use pulsar_reflection_derive::{Reflectable, pulsar_type, reflect_methods};
 pub use methods::{
-    find_method, methods_for, methods_of, CallError, MethodFlags, MethodRegistry, ParamInfo,
+    find_method, methods_for, methods_of, CallError, MethodFlags, MethodInfo, MethodRegistry, ParamInfo,
     PassMode, Receiver, ReceiverKind, ReflectedMethod, TypeMethodRegistration, TypeRef,
     METHOD_REGISTRY,
 };

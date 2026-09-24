@@ -2,6 +2,7 @@
 members = [
     "crates/pulsar_reflection",
     "crates/pulsar_reflection_derive",
+    "crates/pulsar_reflection_codegen",
 ]
 resolver = "2"
 
@@ -27,3 +28,4 @@ glam = { version = "0.33", features = ["serde"] }
 inventory = "0.3"
 owo-colors = "4"
 pulsar_reflection_derive = { path = "crates/pulsar_reflection_derive" }
+pulsar_reflection_codegen = { path = "crates/pulsar_reflection_codegen" }

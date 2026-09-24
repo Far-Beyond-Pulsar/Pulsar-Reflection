@@ -32,7 +32,10 @@ pub struct TypeRef {
 
 impl TypeRef {
     pub fn of<T: Any>() -> Self {
-        Self { id: TypeId::of::<T>, name: std::any::type_name::<T> }
+        Self {
+            id: TypeId::of::<T>,
+            name: std::any::type_name::<T>,
+        }
     }
 
     pub fn type_id(&self) -> TypeId {
@@ -104,8 +107,14 @@ pub struct MethodFlags {
 }
 
 impl MethodFlags {
-    pub const NONE: Self = Self { side_effect_free: false, deterministic: false };
-    pub const PURE: Self = Self { side_effect_free: true, deterministic: true };
+    pub const NONE: Self = Self {
+        side_effect_free: false,
+        deterministic: false,
+    };
+    pub const PURE: Self = Self {
+        side_effect_free: true,
+        deterministic: true,
+    };
 }
 
 /// Why an `invoke` call was rejected or failed.
@@ -113,11 +122,21 @@ impl MethodFlags {
 pub enum CallError {
     /// The method takes `self` and no receiver was given, or the receiver
     /// is `&` but the method needs `&mut`.
-    ReceiverMissing { needed: ReceiverKind },
+    ReceiverMissing {
+        needed: ReceiverKind,
+    },
     /// The receiver is not the method's `Self` type.
-    ReceiverType { expected: &'static str },
-    ArgCount { expected: usize, found: usize },
-    ArgType { index: usize, expected: &'static str },
+    ReceiverType {
+        expected: &'static str,
+    },
+    ArgCount {
+        expected: usize,
+        found: usize,
+    },
+    ArgType {
+        index: usize,
+        expected: &'static str,
+    },
     /// The method ran and returned `Err`; the message is its `Display`.
     Failed(String),
 }
@@ -151,22 +170,28 @@ impl<'a> Receiver<'a> {
     /// Shared view of the receiver as `T`. Used by generated shims.
     pub fn downcast_ref<T: Any>(&self) -> Result<&T, CallError> {
         let value: &dyn Any = match self {
-            Self::None => return Err(CallError::ReceiverMissing { needed: ReceiverKind::Ref }),
+            Self::None => {
+                return Err(CallError::ReceiverMissing {
+                    needed: ReceiverKind::Ref,
+                })
+            }
             Self::Ref(value) => *value,
             Self::Mut(value) => &**value,
         };
-        value
-            .downcast_ref::<T>()
-            .ok_or(CallError::ReceiverType { expected: std::any::type_name::<T>() })
+        value.downcast_ref::<T>().ok_or(CallError::ReceiverType {
+            expected: std::any::type_name::<T>(),
+        })
     }
 
     /// Mutable view of the receiver as `T`. Used by generated shims.
     pub fn downcast_mut<T: Any>(&mut self) -> Result<&mut T, CallError> {
         match self {
-            Self::Mut(value) => value
-                .downcast_mut::<T>()
-                .ok_or(CallError::ReceiverType { expected: std::any::type_name::<T>() }),
-            _ => Err(CallError::ReceiverMissing { needed: ReceiverKind::Mut }),
+            Self::Mut(value) => value.downcast_mut::<T>().ok_or(CallError::ReceiverType {
+                expected: std::any::type_name::<T>(),
+            }),
+            _ => Err(CallError::ReceiverMissing {
+                needed: ReceiverKind::Mut,
+            }),
         }
     }
 }
@@ -177,11 +202,15 @@ impl<'a> Receiver<'a> {
 pub type InvokeFn =
     fn(Receiver<'_>, &mut [Box<dyn Any>]) -> Result<Option<Box<dyn Any>>, CallError>;
 
-/// One method of a reflected type.
-pub struct ReflectedMethod {
+/// A method's signature and metadata, independent of how it is invoked.
+/// Shared by [`ReflectedMethod`] and methods registered elsewhere (e.g.
+/// SceneDB component methods that receive the world), so frontends present
+/// every callable the same way.
+#[derive(Clone, Copy)]
+pub struct MethodInfo {
     pub name: &'static str,
     pub doc: &'static str,
-    pub receiver: ReceiverKind,
+    /// The script-visible parameters (not the receiver or other context).
     pub params: &'static [ParamInfo],
     /// `None` for `()`. For a method returning `Result<T, E>`, this is `T`;
     /// an `Err` surfaces as [`CallError::Failed`].
@@ -190,12 +219,36 @@ pub struct ReflectedMethod {
     /// Free-form `key = "value"` attributes (e.g. `category`), passed
     /// through untouched for frontends.
     pub attrs: &'static [(&'static str, &'static str)],
+}
+
+impl MethodInfo {
+    pub fn attr(&self, key: &str) -> Option<&'static str> {
+        self.attrs.iter().find(|(k, _)| *k == key).map(|(_, v)| *v)
+    }
+}
+
+impl fmt::Debug for MethodInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MethodInfo")
+            .field("name", &self.name)
+            .field("params", &self.params)
+            .field("ret", &self.ret)
+            .field("flags", &self.flags)
+            .field("attrs", &self.attrs)
+            .finish_non_exhaustive()
+    }
+}
+
+/// One method of a reflected type.
+pub struct ReflectedMethod {
+    pub info: MethodInfo,
+    pub receiver: ReceiverKind,
     pub invoke: InvokeFn,
 }
 
 impl ReflectedMethod {
-    pub fn attr(&self, key: &str) -> Option<&'static str> {
-        self.attrs.iter().find(|(k, _)| *k == key).map(|(_, v)| *v)
+    pub fn name(&self) -> &'static str {
+        self.info.name
     }
 
     pub fn call(
@@ -210,12 +263,8 @@ impl ReflectedMethod {
 impl fmt::Debug for ReflectedMethod {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ReflectedMethod")
-            .field("name", &self.name)
+            .field("info", &self.info)
             .field("receiver", &self.receiver)
-            .field("params", &self.params)
-            .field("ret", &self.ret)
-            .field("flags", &self.flags)
-            .field("attrs", &self.attrs)
             .finish_non_exhaustive()
     }
 }
@@ -246,15 +295,22 @@ impl MethodRegistry {
         for registration in inventory::iter::<TypeMethodRegistration> {
             let entry = by_type
                 .entry(registration.ty.type_id())
-                .or_insert_with(|| TypeMethods { ty: registration.ty, methods: Vec::new() });
+                .or_insert_with(|| TypeMethods {
+                    ty: registration.ty,
+                    methods: Vec::new(),
+                });
             for method in registration.methods {
-                if entry.methods.iter().any(|m| m.name == method.name) {
+                if entry
+                    .methods
+                    .iter()
+                    .any(|m| m.info.name == method.info.name)
+                {
                     // Overloads are not supported: names are how scripts
                     // bind to methods. Keep the first, loudly.
                     tracing::error!(
                         "duplicate reflected method {}::{}; keeping the first",
                         registration.ty.type_name(),
-                        method.name
+                        method.info.name
                     );
                     continue;
                 }
@@ -269,7 +325,10 @@ impl MethodRegistry {
     }
 
     pub fn find(&self, ty: TypeId, name: &str) -> Option<&'static ReflectedMethod> {
-        self.methods_of(ty).iter().copied().find(|m| m.name == name)
+        self.methods_of(ty)
+            .iter()
+            .copied()
+            .find(|m| m.info.name == name)
     }
 
     /// Every type with at least one registered method.
@@ -304,7 +363,10 @@ pub mod __private {
         if args.len() == expected {
             Ok(())
         } else {
-            Err(CallError::ArgCount { expected, found: args.len() })
+            Err(CallError::ArgCount {
+                expected,
+                found: args.len(),
+            })
         }
     }
 
@@ -312,22 +374,29 @@ pub mod __private {
         if args[index].is::<T>() {
             Ok(())
         } else {
-            Err(CallError::ArgType { index, expected: std::any::type_name::<T>() })
+            Err(CallError::ArgType {
+                index,
+                expected: std::any::type_name::<T>(),
+            })
         }
     }
 
     /// Move a (pre-checked) by-value argument out of its slot.
     pub fn take<T: Any>(slot: &mut Box<dyn Any>) -> T {
         let boxed = std::mem::replace(slot, Box::new(()));
-        *boxed.downcast::<T>().unwrap_or_else(|_| unreachable!("argument type pre-checked"))
+        *boxed
+            .downcast::<T>()
+            .unwrap_or_else(|_| unreachable!("argument type pre-checked"))
     }
 
     pub fn borrow<T: Any>(slot: &Box<dyn Any>) -> &T {
-        slot.downcast_ref::<T>().unwrap_or_else(|| unreachable!("argument type pre-checked"))
+        slot.downcast_ref::<T>()
+            .unwrap_or_else(|| unreachable!("argument type pre-checked"))
     }
 
     pub fn borrow_mut<T: Any>(slot: &mut Box<dyn Any>) -> &mut T {
-        slot.downcast_mut::<T>().unwrap_or_else(|| unreachable!("argument type pre-checked"))
+        slot.downcast_mut::<T>()
+            .unwrap_or_else(|| unreachable!("argument type pre-checked"))
     }
 
     /// Box a return value; `()` becomes `None`.
