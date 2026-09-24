@@ -124,7 +124,7 @@ pub fn generate_enum_impl(
                     <#name #ty_generics as ::pulsar_reflection::Reflectable>::serialize(typed, &mut serializer)?;
                     Ok(serializer.into_json())
                 },
-                deserialize_json: |value: ::serde_json::Value| {
+                deserialize_json: |value: ::pulsar_reflection::serde_json::Value| {
                     let mut deserializer = ::pulsar_reflection::JsonDeserializer::new(value);
                     let typed = <#name #ty_generics as ::pulsar_reflection::Reflectable>::deserialize(&mut deserializer)?;
                     Ok(::std::boxed::Box::new(typed) as ::std::boxed::Box<dyn ::std::any::Any>)

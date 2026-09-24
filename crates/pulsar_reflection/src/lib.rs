@@ -24,6 +24,9 @@ extern crate self as pulsar_reflection;
 
 pub mod registry;
 
+// TypeId-keyed methods on reflected types (`#[reflect_methods]`).
+pub mod methods;
+
 // Dynamic (non-`EngineClass`) method dispatch — subsystems, singletons, etc.
 pub mod dyn_registry;
 
@@ -38,6 +41,7 @@ pub mod type_traits;
 // Primitive type implementations
 pub mod prims;
 
+pub use serde_json;
 use serde_json::Value;
 use std::any::{Any, TypeId};
 use std::collections::{HashMap, HashSet};
@@ -77,7 +81,12 @@ pub use type_renderer::{
 };
 
 // Re-export derive macro
-pub use pulsar_reflection_derive::{Reflectable, pulsar_type};
+pub use pulsar_reflection_derive::{Reflectable, pulsar_type, reflect_methods};
+pub use methods::{
+    find_method, methods_for, methods_of, CallError, MethodFlags, MethodInfo, MethodRegistry, ParamInfo,
+    PassMode, Receiver, ReceiverKind, ReflectedMethod, TypeMethodRegistration, TypeRef,
+    METHOD_REGISTRY,
+};
 
 // Re-export generic enum dropdown editor (auto-registered for all enums)
 #[cfg(feature = "prims-gpui")]
