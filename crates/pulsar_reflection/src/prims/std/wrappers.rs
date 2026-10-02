@@ -81,6 +81,35 @@ where
     }
 }
 
+macro_rules! impl_array {
+    ($ty:ty, $n:expr) => {
+        impl Reflectable for [$ty; $n] {
+            fn type_info() -> &'static RuntimeTypeInfo where Self: Sized { get_or_insert_wrapper_type_info::<Self, $ty>(WrapperType::Array) }
+            fn serialize(&self, serializer: &mut dyn TypeSerializer) -> ReflectResult<()> {
+                let values: Vec<&dyn Any> = self.iter().map(|value| value as &dyn Any).collect();
+                serializer.serialize_array(&values, <$ty as Reflectable>::type_info())
+            }
+            fn deserialize(deserializer: &mut dyn TypeDeserializer) -> ReflectResult<Self> where Self: Sized {
+                let values = deserializer.deserialize_array(<$ty as Reflectable>::type_info())?;
+                let mut out = Vec::with_capacity($n);
+                for value in values { out.push(value.downcast::<$ty>().map(|v| *v).map_err(|_| ReflectError::TypeMismatch { expected: std::any::type_name::<Self>(), found: "array element type mismatch".into() })?); }
+                out.try_into().map_err(|_| ReflectError::TypeMismatch { expected: std::any::type_name::<Self>(), found: "array length mismatch".into() })
+            }
+            fn clone_any(&self) -> Box<dyn Any> { Box::new(*self) }
+        }
+    };
+}
+impl_array!(f32, 2);
+impl_array!(i32, 2);
+impl_array!(u32, 1);
+impl_array!(u32, 2);
+impl_array!(u32, 3);
+impl_array!(u32, 4);
+impl_array!(f32, 12);
+impl_array!(f32, 16);
+impl_array!(u32, 116);
+impl_array!([f32; 4], 3);
+impl_array!([f32; 4], 4);
 impl<T> Reflectable for Option<T>
 where
     T: Reflectable + Clone + Send + Sync + 'static,
@@ -194,3 +223,8 @@ mod tests {
         }
     }
 }
+
+
+
+
+

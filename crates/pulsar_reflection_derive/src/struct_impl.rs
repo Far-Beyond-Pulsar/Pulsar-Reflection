@@ -61,7 +61,7 @@ fn generate_named_fields_impl(
                         struct_name: stringify!(#name),
                         field_name: #field_name_str,
                     })?;
-                value.downcast_ref::<#field_type>().cloned()
+                *value.downcast_ref::<#field_type>()
                     .ok_or_else(|| ::pulsar_reflection::ReflectError::TypeMismatch {
                         expected: stringify!(#field_type),
                         found: format!("{:?}", value.type_id()),
@@ -70,38 +70,24 @@ fn generate_named_fields_impl(
         }
     });
 
+    let type_info_name = quote::format_ident!("{}_TYPE_INFO", name);
+
     quote! {
+        #[allow(non_upper_case_globals)]
+        static #type_info_name: ::std::sync::LazyLock<::pulsar_reflection::RuntimeTypeInfo> = ::std::sync::LazyLock::new(|| ::pulsar_reflection::RuntimeTypeInfo {
+            type_id: std::any::TypeId::of::<#name #ty_generics>(),
+            type_name: stringify!(#name),
+            size: std::mem::size_of::<#name #ty_generics>(),
+            align: std::mem::align_of::<#name #ty_generics>(),
+            structure: ::pulsar_reflection::TypeStructure::Struct {
+                fields: ::std::boxed::Box::leak(::std::boxed::Box::new(#field_infos)),
+            },
+            color: #color_expr,
+        });
+
         impl #impl_generics ::pulsar_reflection::Reflectable for #name #ty_generics #where_clause {
             fn type_info() -> &'static ::pulsar_reflection::RuntimeTypeInfo {
-                // Lazily built, not a plain `static ... = RuntimeTypeInfo {
-                // .. }` literal: each field's own `FieldInfo` embeds
-                // `<FieldTy as Reflectable>::type_info()` -- an ordinary,
-                // non-`const` trait method call, which a `static`
-                // initializer can never contain (breaks for ANY field,
-                // including a bare `f32` -- primitives' own `type_info()`
-                // isn't `const` either). `OnceLock` defers the whole
-                // construction to first call, which is an entirely normal
-                // runtime context -- consistent with how `Vec<T>`/`Option
-                // <T>`'s own `Reflectable` impls already have to do this
-                // (`prims/std/wrappers.rs`'s `get_or_insert_wrapper_type_
-                // info`, generic types having no choice but to compute
-                // their info at runtime in the first place). The leaked
-                // `FieldInfo` slice is the same "lives forever, one-time
-                // cost" trade that pattern already makes.
-                static CELL: ::std::sync::OnceLock<::pulsar_reflection::RuntimeTypeInfo> =
-                    ::std::sync::OnceLock::new();
-                CELL.get_or_init(|| {
-                    let fields: &'static [::pulsar_reflection::FieldInfo] =
-                        ::std::boxed::Box::leak(::std::boxed::Box::new(#field_infos));
-                    ::pulsar_reflection::RuntimeTypeInfo {
-                        type_id: std::any::TypeId::of::<#name #ty_generics>(),
-                        type_name: stringify!(#name),
-                        size: std::mem::size_of::<#name #ty_generics>(),
-                        align: std::mem::align_of::<#name #ty_generics>(),
-                        structure: ::pulsar_reflection::TypeStructure::Struct { fields },
-                        color: #color_expr,
-                    }
-                })
+                &*#type_info_name
             }
 
             fn serialize(&self, serializer: &mut dyn ::pulsar_reflection::TypeSerializer) -> ::pulsar_reflection::ReflectResult<()> {
@@ -132,7 +118,7 @@ fn generate_named_fields_impl(
 
         ::pulsar_reflection::inventory::submit! {
             ::pulsar_reflection::RuntimeTypeRegistration {
-                type_info: <#name #ty_generics as ::pulsar_reflection::Reflectable>::type_info,
+                type_info: || &*#type_info_name,
                 serialize_json: |value: &dyn ::std::any::Any| {
                     let typed = value.downcast_ref::<#name #ty_generics>().ok_or_else(|| {
                         ::pulsar_reflection::ReflectError::TypeMismatch {
@@ -164,7 +150,8 @@ fn generate_unit_struct_impl(
     let type_info_name = quote::format_ident!("{}_TYPE_INFO", name);
 
     quote! {
-        static #type_info_name: ::pulsar_reflection::RuntimeTypeInfo = ::pulsar_reflection::RuntimeTypeInfo {
+        #[allow(non_upper_case_globals)]
+        static #type_info_name: ::std::sync::LazyLock<::pulsar_reflection::RuntimeTypeInfo> = ::std::sync::LazyLock::new(|| ::pulsar_reflection::RuntimeTypeInfo {
             type_id: std::any::TypeId::of::<#name #ty_generics>(),
             type_name: stringify!(#name),
             size: std::mem::size_of::<#name #ty_generics>(),
@@ -173,11 +160,11 @@ fn generate_unit_struct_impl(
                 fields: &[],
             },
             color: #color_expr,
-        };
+        });
 
         impl #impl_generics ::pulsar_reflection::Reflectable for #name #ty_generics #where_clause {
             fn type_info() -> &'static ::pulsar_reflection::RuntimeTypeInfo {
-                &#type_info_name
+                &*#type_info_name
             }
 
             fn serialize(&self, serializer: &mut dyn ::pulsar_reflection::TypeSerializer) -> ::pulsar_reflection::ReflectResult<()> {
@@ -195,7 +182,7 @@ fn generate_unit_struct_impl(
 
         ::pulsar_reflection::inventory::submit! {
             ::pulsar_reflection::RuntimeTypeRegistration {
-                type_info: <#name #ty_generics as ::pulsar_reflection::Reflectable>::type_info,
+                type_info: || &*#type_info_name,
                 serialize_json: |value: &dyn ::std::any::Any| {
                     let typed = value.downcast_ref::<#name #ty_generics>().ok_or_else(|| {
                         ::pulsar_reflection::ReflectError::TypeMismatch {
@@ -216,3 +203,7 @@ fn generate_unit_struct_impl(
         }
     }
 }
+
+
+
+

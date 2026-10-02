@@ -108,10 +108,10 @@ pub fn expand_primitive_alias(
     let deserialize_json_with = override_deserialize_json_with.clone().unwrap();
 
     let json_serialize_value = quote! {
-        (#serialize_json_with as fn(&#target_ty) -> ::pulsar_reflection::ReflectResult<::pulsar_reflection::serde_json::Value>)(typed)
+        (#serialize_json_with as fn(&#target_ty) -> ::pulsar_reflection::ReflectResult<::serde_json::Value>)(typed)
     };
     let json_deserialize_value = quote! {
-        (#deserialize_json_with as fn(::pulsar_reflection::serde_json::Value) -> ::pulsar_reflection::ReflectResult<#target_ty>)(value)
+        (#deserialize_json_with as fn(::serde_json::Value) -> ::pulsar_reflection::ReflectResult<#target_ty>)(value)
     };
     let clone_impl = quote! { typed.clone() };
 
@@ -149,18 +149,18 @@ pub fn expand_primitive_alias(
         #item_type
 
         #[allow(non_upper_case_globals)]
-        static #type_info_name: ::pulsar_reflection::RuntimeTypeInfo = ::pulsar_reflection::RuntimeTypeInfo {
+        static #type_info_name: ::std::sync::LazyLock<::pulsar_reflection::RuntimeTypeInfo> = ::std::sync::LazyLock::new(|| ::pulsar_reflection::RuntimeTypeInfo {
             type_id: ::std::any::TypeId::of::<#target_ty>(),
             type_name: stringify!(#target_ty),
             size: ::std::mem::size_of::<#target_ty>(),
             align: ::std::mem::align_of::<#target_ty>(),
             structure: ::pulsar_reflection::TypeStructure::Primitive,
             color: #color_expr,
-        };
+        });
 
         impl ::pulsar_reflection::Reflectable for #target_ty {
             fn type_info() -> &'static ::pulsar_reflection::RuntimeTypeInfo {
-                &#type_info_name
+                &*#type_info_name
             }
 
             fn serialize(&self, serializer: &mut dyn ::pulsar_reflection::TypeSerializer) -> ::pulsar_reflection::ReflectResult<()> {
@@ -186,7 +186,7 @@ pub fn expand_primitive_alias(
 
         ::pulsar_reflection::inventory::submit! {
             ::pulsar_reflection::RuntimeTypeRegistration {
-                type_info: <#target_ty as ::pulsar_reflection::Reflectable>::type_info,
+                type_info: || &*#type_info_name,
                 serialize_json: |value: &dyn ::std::any::Any| {
                     let typed = value.downcast_ref::<#target_ty>().ok_or_else(|| {
                         ::pulsar_reflection::ReflectError::TypeMismatch {
@@ -196,7 +196,7 @@ pub fn expand_primitive_alias(
                     })?;
                     #json_serialize_value
                 },
-                deserialize_json: |value: ::pulsar_reflection::serde_json::Value| {
+                deserialize_json: |value: ::serde_json::Value| {
                     let typed: #target_ty = #json_deserialize_value?;
                     Ok(::std::boxed::Box::new(#clone_impl) as ::std::boxed::Box<dyn ::std::any::Any>)
                 },
@@ -206,3 +206,6 @@ pub fn expand_primitive_alias(
         #editor_submit
     })
 }
+
+
+

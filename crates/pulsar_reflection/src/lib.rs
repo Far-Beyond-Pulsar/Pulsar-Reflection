@@ -222,6 +222,26 @@ pub struct UiPropertyEditorHint {
 
 inventory::collect!(UiPropertyEditorHint);
 
+/// Per-variant doc comments of a unit enum, in declaration order.
+///
+/// Emitted by `#[derive(Reflectable)]` when at least one variant has a
+/// `///` doc comment; the enum dropdown shows the selected variant's text
+/// as its tooltip. A variant without docs has an empty string.
+pub struct EnumVariantDocs {
+    pub type_id: std::any::TypeId,
+    pub docs: &'static [&'static str],
+}
+
+inventory::collect!(EnumVariantDocs);
+
+/// The variant docs registered for `type_id`, if any.
+pub fn enum_variant_docs(type_id: std::any::TypeId) -> Option<&'static [&'static str]> {
+    inventory::iter::<EnumVariantDocs>
+        .into_iter()
+        .find(|entry| entry.type_id == type_id)
+        .map(|entry| entry.docs)
+}
+
 /// Erase a [`PropertyEditorFactory`] to the opaque `fn()` stored in
 /// [`UiPropertyEditorHint::fn_ptr`].
 ///
@@ -674,13 +694,6 @@ impl fmt::Debug for PropertyMetadata {
     }
 }
 
-/// Classification for blueprint-callable method behavior.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MethodType {
-    Pure,
-    Fn,
-    ControlFlow,
-}
 
 /// Metadata for a single method parameter.
 #[derive(Debug, Clone)]
@@ -707,7 +720,7 @@ pub struct MethodMetadata {
     pub category: Option<&'static str>,
     pub params: Vec<MethodParameter>,
     pub return_type: Option<MethodReturnType>,
-    pub method_type: MethodType,
+    pub flags: MethodFlags,
     pub caller: MethodCaller,
 }
 
@@ -719,7 +732,7 @@ impl fmt::Debug for MethodMetadata {
             .field("category", &self.category)
             .field("params", &self.params)
             .field("return_type", &self.return_type)
-            .field("method_type", &self.method_type)
+            .field("flags", &self.flags)
             .finish()
     }
 }
