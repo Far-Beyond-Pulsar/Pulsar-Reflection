@@ -13,23 +13,10 @@ use std::collections::HashMap;
 
 /// Registration entry for auto-discovery via inventory
 ///
-/// Automatically submitted by the `#[derive(Reflectable)]` macro.
-///
-/// `type_info` is a plain zero-argument function pointer, not an eagerly-
-/// resolved `&'static RuntimeTypeInfo` -- `inventory::submit!` embeds its
-/// payload inside a `static` (see that macro's own expansion), which
-/// requires every field to be const-constructible. A function ITEM (no
-/// parens -- `SomeType::type_info`, not `SomeType::type_info()`) always is,
-/// regardless of what the function's BODY does when it actually runs; a
-/// resolved `&'static RuntimeTypeInfo` value is only const-constructible
-/// when producing it involves nothing but other const operations, which
-/// stops being true the moment a struct's own `Reflectable::type_info()`
-/// needs to call `Reflectable::type_info()` on one of its fields (an
-/// ordinary, non-`const` trait method) -- exactly the case a struct with
-/// any field at all hits. Deferring the call to registry-build time (inside
-/// `RuntimeTypeRegistry::new`, itself already lazily run on first access --
-/// see `RUNTIME_TYPE_REGISTRY`) sidesteps the const requirement entirely.
+/// Automatically submitted by the `#[derive(Reflectable)]` macro
 pub struct RuntimeTypeRegistration {
+    /// A function pointer (not a resolved reference): `inventory::submit!` needs a
+    /// const-constructible payload, and a function item always is.
     pub type_info: fn() -> &'static RuntimeTypeInfo,
     pub serialize_json: fn(&dyn Any) -> ReflectResult<Value>,
     pub deserialize_json: fn(Value) -> ReflectResult<Box<dyn Any>>,
@@ -59,20 +46,11 @@ pub struct RuntimeTypeRegistry {
 impl RuntimeTypeRegistry {
     /// Create a new registry from inventory
     fn new() -> Self {
-        #[cfg(feature = "prims-core")]
-        crate::prims::core::ensure_registered();
-        #[cfg(feature = "prims-std")]
-        crate::prims::std::ensure_registered();
-
         let mut types = HashMap::new();
         let mut by_name = HashMap::new();
 
         // Auto-discover all RuntimeTypeRegistration entries via inventory
         for registration in inventory::iter::<RuntimeTypeRegistration> {
-            // Runtime call -- `RuntimeTypeRegistry::new` only ever runs
-            // inside `RUNTIME_TYPE_REGISTRY`'s own `Lazy`, never at const-
-            // eval time, so calling straight through the fn pointer here is
-            // exactly as sound as any other ordinary function call.
             let type_info = (registration.type_info)();
 
             types.insert(

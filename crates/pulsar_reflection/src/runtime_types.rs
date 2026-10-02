@@ -240,6 +240,8 @@ pub enum TypeStructure {
 /// Types of wrapper containers
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum WrapperType {
+    /// Fixed-size array `[T; N]`.
+    Array,
     /// Vec<T>
     Vec,
 
