@@ -79,22 +79,30 @@ impl ConversionRegistry {
                 );
                 continue;
             }
-            if RUNTIME_TYPE_REGISTRY.get_by_id(source_type_id).is_none()
-                || RUNTIME_TYPE_REGISTRY.get_by_id(target_type_id).is_none()
-            {
+            let Some(source_type) = RUNTIME_TYPE_REGISTRY.get_by_id(source_type_id) else {
                 tracing::error!(
                     conversion = registration.id,
-                    "conversion references an unreflected type; registration ignored"
+                    "conversion source type is unreflected; registration ignored"
                 );
                 continue;
-            }
+            };
+            let Some(target_type) = RUNTIME_TYPE_REGISTRY.get_by_id(target_type_id) else {
+                tracing::error!(
+                    conversion = registration.id,
+                    "conversion target type is unreflected; registration ignored"
+                );
+                continue;
+            };
             by_types.insert((source_type_id, target_type_id), registration.id);
             by_id.insert(
                 registration.id,
                 ConversionInfo {
                     id: registration.id,
-                    source_type_name: (registration.source_type_name)(),
-                    target_type_name: (registration.target_type_name)(),
+                    // Pin types use Reflection's stable names, not Rust's
+                    // implementation paths (for example, String vs.
+                    // alloc::string::String).
+                    source_type_name: source_type.type_name,
+                    target_type_name: target_type.type_name,
                     label: registration.label,
                     source_type_id,
                     target_type_id,
