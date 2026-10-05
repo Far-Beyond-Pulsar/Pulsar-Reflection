@@ -9,8 +9,35 @@ use crate::pulsar_type;
 #[allow(dead_code)]
 type RegisteredI64 = i64;
 
-// Narrowing can overflow, so the reflected conversion uses checked `TryFrom`.
-crate::register_try_conversion!(i64 => i32, id = "numeric.i64_to_i32_checked");
+#[crate::pulsar_conversion(id = "numeric.i64_to_i32_checked")]
+fn convert_i64_to_i32(value: i64) -> Result<i32, String> {
+    i32::try_from(value).map_err(|_| "integer value is outside the target type's range".to_string())
+}
+
+#[crate::pulsar_conversion]
+fn convert_i64_to_u32(value: i64) -> Result<u32, String> {
+    u32::try_from(value).map_err(|_| "integer value is outside the target type's range".to_string())
+}
+
+#[crate::pulsar_conversion]
+fn convert_i64_to_u64(value: i64) -> Result<u64, String> {
+    u64::try_from(value).map_err(|_| "integer value is outside the target type's range".to_string())
+}
+
+#[crate::pulsar_conversion]
+fn convert_i64_to_f32(value: i64) -> f32 {
+    value as f32
+}
+
+#[crate::pulsar_conversion]
+fn convert_i64_to_f64(value: i64) -> f64 {
+    value as f64
+}
+
+#[crate::pulsar_conversion]
+fn convert_i64_to_string(value: i64) -> String {
+    value.to_string()
+}
 
 fn serialize_i64_json(value: &i64) -> crate::ReflectResult<serde_json::Value> {
     Ok(serde_json::json!(*value))
@@ -27,7 +54,7 @@ fn deserialize_i64_json(value: serde_json::Value) -> crate::ReflectResult<i64> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{JsonDeserializer, JsonSerializer, RUNTIME_TYPE_REGISTRY, Reflectable};
+    use crate::{JsonDeserializer, JsonSerializer, Reflectable, RUNTIME_TYPE_REGISTRY};
 
     #[test]
     fn test_i64_registered() {

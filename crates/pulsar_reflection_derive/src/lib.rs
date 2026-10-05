@@ -16,6 +16,7 @@
 //! }
 //! ```
 
+mod conversions;
 mod deprecation;
 mod derive;
 mod enum_impl;
@@ -66,4 +67,12 @@ pub fn pulsar_type(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn reflect_methods(attr: TokenStream, item: TokenStream) -> TokenStream {
     methods::reflect_methods(attr, item)
+}
+
+/// Register a concrete Rust function as a runtime-discoverable reflected conversion.
+/// The function takes one owned source value and returns either the target value
+/// directly or `Result<Target, E>` where `E: Display`.
+#[proc_macro_attribute]
+pub fn pulsar_conversion(attr: TokenStream, item: TokenStream) -> TokenStream {
+    conversions::pulsar_conversion(attr, item)
 }

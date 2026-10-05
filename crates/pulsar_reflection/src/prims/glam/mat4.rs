@@ -34,3 +34,14 @@ fn deserialize_mat4_json(value: serde_json::Value) -> crate::ReflectResult<glam:
     deserialize_json_with = deserialize_mat4_json
 )]
 type RegisteredMat4 = glam::Mat4;
+
+#[crate::pulsar_conversion]
+fn json_to_mat4(value: serde_json::Value) -> Result<glam::Mat4, serde_json::Error> {
+    let columns: [f32; 16] = serde_json::from_value(value)?;
+    Ok(glam::Mat4::from_cols_array(&columns))
+}
+
+#[crate::pulsar_conversion]
+fn mat4_to_json(value: glam::Mat4) -> serde_json::Value {
+    serde_json::json!(value.to_cols_array())
+}

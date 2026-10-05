@@ -21,6 +21,62 @@ use crate::pulsar_type;
 )]
 type RegisteredF32 = f32;
 
+// Float-to-integer conversions reject non-finite/out-of-range inputs. Values
+// with a fractional part follow Rust's cast semantics and truncate toward zero.
+#[crate::pulsar_conversion]
+fn convert_f32_to_i32(value: f32) -> Result<i32, String> {
+    let value = f64::from(value);
+    if !value.is_finite() || value < i32::MIN as f64 || value >= 2147483648.0 {
+        return Err(
+            "floating-point value is non-finite or outside the target integer range".to_string(),
+        );
+    }
+    Ok(value as i32)
+}
+
+#[crate::pulsar_conversion]
+fn convert_f32_to_i64(value: f32) -> Result<i64, String> {
+    let value = f64::from(value);
+    if !value.is_finite() || value < -9223372036854775808.0 || value >= 9223372036854775808.0 {
+        return Err(
+            "floating-point value is non-finite or outside the target integer range".to_string(),
+        );
+    }
+    Ok(value as i64)
+}
+
+#[crate::pulsar_conversion]
+fn convert_f32_to_u32(value: f32) -> Result<u32, String> {
+    let value = f64::from(value);
+    if !value.is_finite() || value < 0.0 || value >= 4294967296.0 {
+        return Err(
+            "floating-point value is non-finite or outside the target integer range".to_string(),
+        );
+    }
+    Ok(value as u32)
+}
+
+#[crate::pulsar_conversion]
+fn convert_f32_to_u64(value: f32) -> Result<u64, String> {
+    let value = f64::from(value);
+    if !value.is_finite() || value < 0.0 || value >= 18446744073709551616.0 {
+        return Err(
+            "floating-point value is non-finite or outside the target integer range".to_string(),
+        );
+    }
+    Ok(value as u64)
+}
+
+#[crate::pulsar_conversion]
+fn convert_f32_to_f64(value: f32) -> f64 {
+    f64::from(value)
+}
+
+#[crate::pulsar_conversion]
+fn convert_f32_to_string(value: f32) -> String {
+    value.to_string()
+}
+
 fn serialize_f32_json(value: &f32) -> crate::ReflectResult<serde_json::Value> {
     Ok(serde_json::json!(*value))
 }
@@ -64,7 +120,11 @@ impl F32Editor {
         use gpui::AppContext as _;
         use ui::input::{InputEvent, InputState, NumberInputEvent, StepAction};
 
-        let value = args.current_value.downcast_ref::<f32>().copied().unwrap_or(0.0);
+        let value = args
+            .current_value
+            .downcast_ref::<f32>()
+            .copied()
+            .unwrap_or(0.0);
         let input = cx.new(|cx| InputState::new(window, cx));
         input.update(cx, |state, cx| {
             state.set_value(format_f32(value), window, cx);
@@ -151,7 +211,7 @@ impl gpui::Render for F32Editor {
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
         use gpui::Styled as _;
-        use ui::{Sizable, input::NumberInput};
+        use ui::{input::NumberInput, Sizable};
 
         crate::prims::editor_row(
             &self.label,
@@ -170,15 +230,14 @@ fn f32_editor(
     use gpui::AppContext as _;
 
     let entity = cx.new(|cx| F32Editor::new(args, window, cx));
-    crate::BoundPropertyEditor::new(
-        entity,
-        |editor: &mut F32Editor, value: &f32, window, cx| editor.set_value(*value, window, cx),
-    )
+    crate::BoundPropertyEditor::new(entity, |editor: &mut F32Editor, value: &f32, window, cx| {
+        editor.set_value(*value, window, cx)
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{JsonDeserializer, JsonSerializer, RUNTIME_TYPE_REGISTRY, Reflectable};
+    use crate::{JsonDeserializer, JsonSerializer, Reflectable, RUNTIME_TYPE_REGISTRY};
 
     #[test]
     fn test_f32_registered() {

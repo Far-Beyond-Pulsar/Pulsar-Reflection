@@ -34,6 +34,41 @@ fn deserialize_string_json(value: serde_json::Value) -> crate::ReflectResult<Str
 #[allow(dead_code)]
 type RegisteredString = String;
 
+#[crate::pulsar_conversion]
+fn parse_string_as_bool(value: String) -> Result<bool, std::str::ParseBoolError> {
+    value.parse()
+}
+
+#[crate::pulsar_conversion]
+fn parse_string_as_i32(value: String) -> Result<i32, std::num::ParseIntError> {
+    value.parse()
+}
+
+#[crate::pulsar_conversion]
+fn parse_string_as_i64(value: String) -> Result<i64, std::num::ParseIntError> {
+    value.parse()
+}
+
+#[crate::pulsar_conversion]
+fn parse_string_as_u32(value: String) -> Result<u32, std::num::ParseIntError> {
+    value.parse()
+}
+
+#[crate::pulsar_conversion]
+fn parse_string_as_u64(value: String) -> Result<u64, std::num::ParseIntError> {
+    value.parse()
+}
+
+#[crate::pulsar_conversion]
+fn parse_string_as_f32(value: String) -> Result<f32, std::num::ParseFloatError> {
+    value.parse()
+}
+
+#[crate::pulsar_conversion]
+fn parse_string_as_f64(value: String) -> Result<f64, std::num::ParseFloatError> {
+    value.parse()
+}
+
 // ── Editor ────────────────────────────────────────────────────────────────────
 
 /// Property editor for `String` — a single-line text input.
@@ -116,7 +151,7 @@ impl gpui::Render for StringEditor {
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
         use gpui::Styled as _;
-        use ui::{Sizable, input::Input};
+        use ui::{input::Input, Sizable};
 
         crate::prims::editor_row(
             &self.label,
@@ -137,15 +172,13 @@ fn string_editor(
     let entity = cx.new(|cx| StringEditor::new(args, window, cx));
     crate::BoundPropertyEditor::new(
         entity,
-        |editor: &mut StringEditor, value: &String, window, cx| {
-            editor.set_value(value, window, cx)
-        },
+        |editor: &mut StringEditor, value: &String, window, cx| editor.set_value(value, window, cx),
     )
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{JsonDeserializer, JsonSerializer, RUNTIME_TYPE_REGISTRY, Reflectable};
+    use crate::{JsonDeserializer, JsonSerializer, Reflectable, RUNTIME_TYPE_REGISTRY};
 
     #[test]
     fn test_string_registered() {

@@ -21,8 +21,35 @@ use crate::pulsar_type;
 )]
 type RegisteredI32 = i32;
 
-// Keep conversions next to this primitive's reflected type registration.
-crate::register_conversion!(i32 => i64, id = "numeric.i32_to_i64");
+#[crate::pulsar_conversion(id = "numeric.i32_to_i64")]
+fn convert_i32_to_i64(value: i32) -> i64 {
+    i64::from(value)
+}
+
+#[crate::pulsar_conversion]
+fn convert_i32_to_u32(value: i32) -> Result<u32, String> {
+    u32::try_from(value).map_err(|_| "integer value is outside the target type's range".to_string())
+}
+
+#[crate::pulsar_conversion]
+fn convert_i32_to_u64(value: i32) -> Result<u64, String> {
+    u64::try_from(value).map_err(|_| "integer value is outside the target type's range".to_string())
+}
+
+#[crate::pulsar_conversion]
+fn convert_i32_to_f32(value: i32) -> f32 {
+    value as f32
+}
+
+#[crate::pulsar_conversion]
+fn convert_i32_to_f64(value: i32) -> f64 {
+    value as f64
+}
+
+#[crate::pulsar_conversion]
+fn convert_i32_to_string(value: i32) -> String {
+    value.to_string()
+}
 
 fn serialize_i32_json(value: &i32) -> crate::ReflectResult<serde_json::Value> {
     Ok(serde_json::json!(*value))
@@ -63,7 +90,11 @@ impl I32Editor {
         use gpui::AppContext as _;
         use ui::input::{InputEvent, InputState, NumberInputEvent, StepAction};
 
-        let value = args.current_value.downcast_ref::<i32>().copied().unwrap_or(0);
+        let value = args
+            .current_value
+            .downcast_ref::<i32>()
+            .copied()
+            .unwrap_or(0);
         let input = cx.new(|cx| InputState::new(window, cx));
         input.update(cx, |state, cx| {
             state.set_value(value.to_string(), window, cx);
@@ -143,7 +174,7 @@ impl gpui::Render for I32Editor {
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
         use gpui::Styled as _;
-        use ui::{Sizable, input::NumberInput};
+        use ui::{input::NumberInput, Sizable};
 
         crate::prims::editor_row(
             &self.label,
@@ -162,15 +193,14 @@ fn i32_editor(
     use gpui::AppContext as _;
 
     let entity = cx.new(|cx| I32Editor::new(args, window, cx));
-    crate::BoundPropertyEditor::new(
-        entity,
-        |editor: &mut I32Editor, value: &i32, window, cx| editor.set_value(*value, window, cx),
-    )
+    crate::BoundPropertyEditor::new(entity, |editor: &mut I32Editor, value: &i32, window, cx| {
+        editor.set_value(*value, window, cx)
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{JsonDeserializer, JsonSerializer, RUNTIME_TYPE_REGISTRY, Reflectable};
+    use crate::{JsonDeserializer, JsonSerializer, Reflectable, RUNTIME_TYPE_REGISTRY};
 
     #[test]
     fn test_i32_registered() {

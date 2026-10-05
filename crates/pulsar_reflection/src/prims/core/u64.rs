@@ -20,6 +20,36 @@ use crate::pulsar_type;
 #[allow(dead_code)]
 type RegisteredU64 = u64;
 
+#[crate::pulsar_conversion]
+fn convert_u64_to_i32(value: u64) -> Result<i32, String> {
+    i32::try_from(value).map_err(|_| "integer value is outside the target type's range".to_string())
+}
+
+#[crate::pulsar_conversion]
+fn convert_u64_to_i64(value: u64) -> Result<i64, String> {
+    i64::try_from(value).map_err(|_| "integer value is outside the target type's range".to_string())
+}
+
+#[crate::pulsar_conversion]
+fn convert_u64_to_u32(value: u64) -> Result<u32, String> {
+    u32::try_from(value).map_err(|_| "integer value is outside the target type's range".to_string())
+}
+
+#[crate::pulsar_conversion]
+fn convert_u64_to_f32(value: u64) -> f32 {
+    value as f32
+}
+
+#[crate::pulsar_conversion]
+fn convert_u64_to_f64(value: u64) -> f64 {
+    value as f64
+}
+
+#[crate::pulsar_conversion]
+fn convert_u64_to_string(value: u64) -> String {
+    value.to_string()
+}
+
 fn serialize_u64_json(value: &u64) -> crate::ReflectResult<serde_json::Value> {
     Ok(serde_json::json!(*value))
 }
@@ -57,7 +87,7 @@ impl gpui::Render for U64Editor {
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
         use gpui::prelude::*;
-        use ui::{ActiveTheme, Sizable, button::Button, menu::PopupMenuItem};
+        use ui::{button::Button, menu::PopupMenuItem, ActiveTheme, Sizable};
 
         let Some(variants) = self.variants else {
             return crate::prims::editor_row(
@@ -114,7 +144,11 @@ fn u64_editor(
         args.id_prefix, args.class_name, args.prop_name
     )
     .into();
-    let value = args.current_value.downcast_ref::<u64>().copied().unwrap_or(0);
+    let value = args
+        .current_value
+        .downcast_ref::<u64>()
+        .copied()
+        .unwrap_or(0);
     let variants = args.type_info.enum_variants();
     let write_back = args.write_back.clone();
 
@@ -126,17 +160,20 @@ fn u64_editor(
         write_back,
     });
 
-    crate::BoundPropertyEditor::new(entity, |editor: &mut U64Editor, value: &u64, _window, cx| {
-        if editor.value != *value {
-            editor.value = *value;
-            cx.notify();
-        }
-    })
+    crate::BoundPropertyEditor::new(
+        entity,
+        |editor: &mut U64Editor, value: &u64, _window, cx| {
+            if editor.value != *value {
+                editor.value = *value;
+                cx.notify();
+            }
+        },
+    )
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{JsonDeserializer, JsonSerializer, RUNTIME_TYPE_REGISTRY, Reflectable};
+    use crate::{JsonDeserializer, JsonSerializer, Reflectable, RUNTIME_TYPE_REGISTRY};
 
     #[test]
     fn test_u64_registered() {

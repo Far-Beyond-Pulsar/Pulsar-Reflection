@@ -19,6 +19,65 @@ use crate::pulsar_type;
 )]
 type RegisteredF64 = f64;
 
+// Float-to-integer conversions reject non-finite/out-of-range inputs. Values
+// with a fractional part follow Rust's cast semantics and truncate toward zero.
+#[crate::pulsar_conversion]
+fn convert_f64_to_i32(value: f64) -> Result<i32, String> {
+    let value = value;
+    if !value.is_finite() || value < i32::MIN as f64 || value >= 2147483648.0 {
+        return Err(
+            "floating-point value is non-finite or outside the target integer range".to_string(),
+        );
+    }
+    Ok(value as i32)
+}
+
+#[crate::pulsar_conversion]
+fn convert_f64_to_i64(value: f64) -> Result<i64, String> {
+    let value = value;
+    if !value.is_finite() || value < -9223372036854775808.0 || value >= 9223372036854775808.0 {
+        return Err(
+            "floating-point value is non-finite or outside the target integer range".to_string(),
+        );
+    }
+    Ok(value as i64)
+}
+
+#[crate::pulsar_conversion]
+fn convert_f64_to_u32(value: f64) -> Result<u32, String> {
+    let value = value;
+    if !value.is_finite() || value < 0.0 || value >= 4294967296.0 {
+        return Err(
+            "floating-point value is non-finite or outside the target integer range".to_string(),
+        );
+    }
+    Ok(value as u32)
+}
+
+#[crate::pulsar_conversion]
+fn convert_f64_to_u64(value: f64) -> Result<u64, String> {
+    let value = value;
+    if !value.is_finite() || value < 0.0 || value >= 18446744073709551616.0 {
+        return Err(
+            "floating-point value is non-finite or outside the target integer range".to_string(),
+        );
+    }
+    Ok(value as u64)
+}
+
+#[crate::pulsar_conversion]
+fn convert_f64_to_f32(value: f64) -> Result<f32, String> {
+    if !value.is_finite() || value < -(f32::MAX as f64) || value > f32::MAX as f64 {
+        return Err("value is non-finite or outside the f32 range".to_string());
+    }
+    Ok(value as f32)
+}
+
+#[crate::pulsar_conversion]
+fn convert_f64_to_string(value: f64) -> String {
+    value.to_string()
+}
+
 fn serialize_f64_json(value: &f64) -> crate::ReflectResult<serde_json::Value> {
     Ok(serde_json::json!(*value))
 }
@@ -58,7 +117,11 @@ impl F64Editor {
         use gpui::AppContext as _;
         use ui::input::{InputEvent, InputState, NumberInputEvent, StepAction};
 
-        let value = args.current_value.downcast_ref::<f64>().copied().unwrap_or(0.0);
+        let value = args
+            .current_value
+            .downcast_ref::<f64>()
+            .copied()
+            .unwrap_or(0.0);
         let input = cx.new(|cx| InputState::new(window, cx));
         input.update(cx, |state, cx| {
             state.set_value(format_f64(value), window, cx);
@@ -138,7 +201,7 @@ impl gpui::Render for F64Editor {
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
         use gpui::Styled as _;
-        use ui::{Sizable, input::NumberInput};
+        use ui::{input::NumberInput, Sizable};
 
         crate::prims::editor_row(
             &self.label,
@@ -157,15 +220,14 @@ fn f64_editor(
     use gpui::AppContext as _;
 
     let entity = cx.new(|cx| F64Editor::new(args, window, cx));
-    crate::BoundPropertyEditor::new(
-        entity,
-        |editor: &mut F64Editor, value: &f64, window, cx| editor.set_value(*value, window, cx),
-    )
+    crate::BoundPropertyEditor::new(entity, |editor: &mut F64Editor, value: &f64, window, cx| {
+        editor.set_value(*value, window, cx)
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{JsonDeserializer, JsonSerializer, RUNTIME_TYPE_REGISTRY, Reflectable};
+    use crate::{JsonDeserializer, JsonSerializer, Reflectable, RUNTIME_TYPE_REGISTRY};
 
     #[test]
     fn test_f64_registered() {

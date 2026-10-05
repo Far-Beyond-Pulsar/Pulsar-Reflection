@@ -20,6 +20,36 @@ use crate::pulsar_type;
 #[allow(dead_code)]
 type RegisteredU32 = u32;
 
+#[crate::pulsar_conversion]
+fn convert_u32_to_i32(value: u32) -> Result<i32, String> {
+    i32::try_from(value).map_err(|_| "integer value is outside the target type's range".to_string())
+}
+
+#[crate::pulsar_conversion]
+fn convert_u32_to_i64(value: u32) -> Result<i64, String> {
+    i64::try_from(value).map_err(|_| "integer value is outside the target type's range".to_string())
+}
+
+#[crate::pulsar_conversion]
+fn convert_u32_to_u64(value: u32) -> u64 {
+    u64::from(value)
+}
+
+#[crate::pulsar_conversion]
+fn convert_u32_to_f32(value: u32) -> f32 {
+    value as f32
+}
+
+#[crate::pulsar_conversion]
+fn convert_u32_to_f64(value: u32) -> f64 {
+    value as f64
+}
+
+#[crate::pulsar_conversion]
+fn convert_u32_to_string(value: u32) -> String {
+    value.to_string()
+}
+
 fn serialize_u32_json(value: &u32) -> crate::ReflectResult<serde_json::Value> {
     Ok(serde_json::json!(*value))
 }
@@ -58,7 +88,7 @@ impl gpui::Render for U32Editor {
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
         use gpui::prelude::*;
-        use ui::{ActiveTheme, Sizable, button::Button, menu::PopupMenuItem};
+        use ui::{button::Button, menu::PopupMenuItem, ActiveTheme, Sizable};
 
         let Some(variants) = self.variants else {
             return crate::prims::editor_row(
@@ -115,7 +145,11 @@ fn u32_editor(
         args.id_prefix, args.class_name, args.prop_name
     )
     .into();
-    let value = args.current_value.downcast_ref::<u32>().copied().unwrap_or(0);
+    let value = args
+        .current_value
+        .downcast_ref::<u32>()
+        .copied()
+        .unwrap_or(0);
     let variants = args.type_info.enum_variants();
     let write_back = args.write_back.clone();
 
@@ -127,17 +161,20 @@ fn u32_editor(
         write_back,
     });
 
-    crate::BoundPropertyEditor::new(entity, |editor: &mut U32Editor, value: &u32, _window, cx| {
-        if editor.value != *value {
-            editor.value = *value;
-            cx.notify();
-        }
-    })
+    crate::BoundPropertyEditor::new(
+        entity,
+        |editor: &mut U32Editor, value: &u32, _window, cx| {
+            if editor.value != *value {
+                editor.value = *value;
+                cx.notify();
+            }
+        },
+    )
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{JsonDeserializer, JsonSerializer, RUNTIME_TYPE_REGISTRY, Reflectable};
+    use crate::{JsonDeserializer, JsonSerializer, Reflectable, RUNTIME_TYPE_REGISTRY};
 
     #[test]
     fn test_u32_registered() {
@@ -172,4 +209,3 @@ mod tests {
         assert_eq!(*boxed.downcast::<u32>().unwrap(), 12345678);
     }
 }
-

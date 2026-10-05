@@ -90,7 +90,7 @@ pub use methods::{
     ParamInfo, PassMode, Receiver, ReceiverKind, ReflectedMethod, TypeMethodRegistration, TypeRef,
     METHOD_REGISTRY,
 };
-pub use pulsar_reflection_derive::{pulsar_type, reflect_methods, Reflectable};
+pub use pulsar_reflection_derive::{pulsar_conversion, pulsar_type, reflect_methods, Reflectable};
 
 // Re-export generic enum dropdown editor (auto-registered for all enums)
 #[cfg(feature = "prims-gpui")]

@@ -23,6 +23,11 @@ use crate::pulsar_type;
 )]
 type RegisteredBool = bool;
 
+#[crate::pulsar_conversion]
+fn convert_bool_to_string(value: bool) -> String {
+    value.to_string()
+}
+
 fn serialize_bool_json(value: &bool) -> crate::ReflectResult<serde_json::Value> {
     Ok(serde_json::json!(*value))
 }
@@ -57,7 +62,7 @@ impl gpui::Render for BoolEditor {
         _window: &mut gpui::Window,
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
-        use ui::{Sizable, switch::Switch};
+        use ui::{switch::Switch, Sizable};
 
         let write_back = self.write_back.clone();
         crate::prims::editor_row(
@@ -87,7 +92,11 @@ fn bool_editor(
         args.id_prefix, args.class_name, args.prop_name
     )
     .into();
-    let value = args.current_value.downcast_ref::<bool>().copied().unwrap_or(false);
+    let value = args
+        .current_value
+        .downcast_ref::<bool>()
+        .copied()
+        .unwrap_or(false);
     let write_back = args.write_back.clone();
 
     let entity = cx.new(|_| BoolEditor {
@@ -97,17 +106,20 @@ fn bool_editor(
         write_back,
     });
 
-    crate::BoundPropertyEditor::new(entity, |editor: &mut BoolEditor, value: &bool, _window, cx| {
-        if editor.value != *value {
-            editor.value = *value;
-            cx.notify();
-        }
-    })
+    crate::BoundPropertyEditor::new(
+        entity,
+        |editor: &mut BoolEditor, value: &bool, _window, cx| {
+            if editor.value != *value {
+                editor.value = *value;
+                cx.notify();
+            }
+        },
+    )
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{JsonDeserializer, JsonSerializer, RUNTIME_TYPE_REGISTRY, Reflectable};
+    use crate::{JsonDeserializer, JsonSerializer, Reflectable, RUNTIME_TYPE_REGISTRY};
 
     #[test]
     fn test_bool_registered() {
