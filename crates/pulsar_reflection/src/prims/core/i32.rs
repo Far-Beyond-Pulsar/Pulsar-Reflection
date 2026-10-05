@@ -21,6 +21,9 @@ use crate::pulsar_type;
 )]
 type RegisteredI32 = i32;
 
+// Keep conversions next to this primitive's reflected type registration.
+crate::register_conversion!(i32 => i64, id = "numeric.i32_to_i64");
+
 fn serialize_i32_json(value: &i32) -> crate::ReflectResult<serde_json::Value> {
     Ok(serde_json::json!(*value))
 }

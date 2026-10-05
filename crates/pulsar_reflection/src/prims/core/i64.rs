@@ -9,6 +9,9 @@ use crate::pulsar_type;
 #[allow(dead_code)]
 type RegisteredI64 = i64;
 
+// Narrowing can overflow, so the reflected conversion uses checked `TryFrom`.
+crate::register_try_conversion!(i64 => i32, id = "numeric.i64_to_i32_checked");
+
 fn serialize_i64_json(value: &i64) -> crate::ReflectResult<serde_json::Value> {
     Ok(serde_json::json!(*value))
 }
