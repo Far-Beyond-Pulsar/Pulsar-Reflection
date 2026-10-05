@@ -31,6 +31,7 @@ pub mod methods;
 pub mod dyn_registry;
 
 // New runtime type reflection system
+pub mod conversions;
 pub mod dynamic_types;
 pub mod json_codec;
 pub mod runtime_registry;
@@ -63,30 +64,33 @@ pub use dyn_registry::{
 pub use inventory;
 
 // Re-export runtime type system
+pub use conversions::{
+    ConversionInfo, ConversionRegistration, ConversionRegistry, CONVERSION_REGISTRY,
+};
 pub use json_codec::{JsonDeserializer, JsonSerializer};
-pub use runtime_registry::{RUNTIME_TYPE_REGISTRY, RuntimeTypeRegistration, RuntimeTypeRegistry};
+pub use runtime_registry::{RuntimeTypeRegistration, RuntimeTypeRegistry, RUNTIME_TYPE_REGISTRY};
 pub use runtime_types::{FieldInfo, RuntimeTypeInfo, TypeStructure, WrapperType};
 pub use type_traits::{ReflectError, ReflectResult, Reflectable, TypeDeserializer, TypeSerializer};
 
 // Re-export dynamic type system
 pub use dynamic_types::{
-    DYNAMIC_TYPE_REGISTRY, DynamicFieldInfo, DynamicTypeBuilder, DynamicTypeInfo,
-    DynamicTypeRegistry, DynamicValue, TypeTag,
+    DynamicFieldInfo, DynamicTypeBuilder, DynamicTypeInfo, DynamicTypeRegistry, DynamicValue,
+    TypeTag, DYNAMIC_TYPE_REGISTRY,
 };
 
 // Re-export type renderer system
 pub use type_renderer::{
-    RenderResult, TYPE_RENDERER_REGISTRY, TypeRenderer, TypeRendererRegistration,
-    TypeRendererRegistry, register_type_renderer,
+    register_type_renderer, RenderResult, TypeRenderer, TypeRendererRegistration,
+    TypeRendererRegistry, TYPE_RENDERER_REGISTRY,
 };
 
 // Re-export derive macro
-pub use pulsar_reflection_derive::{Reflectable, pulsar_type, reflect_methods};
 pub use methods::{
-    find_method, methods_for, methods_of, CallError, MethodFlags, MethodInfo, MethodRegistry, ParamInfo,
-    PassMode, Receiver, ReceiverKind, ReflectedMethod, TypeMethodRegistration, TypeRef,
+    find_method, methods_for, methods_of, CallError, MethodFlags, MethodInfo, MethodRegistry,
+    ParamInfo, PassMode, Receiver, ReceiverKind, ReflectedMethod, TypeMethodRegistration, TypeRef,
     METHOD_REGISTRY,
 };
+pub use pulsar_reflection_derive::{pulsar_type, reflect_methods, Reflectable};
 
 // Re-export generic enum dropdown editor (auto-registered for all enums)
 #[cfg(feature = "prims-gpui")]
@@ -693,7 +697,6 @@ impl fmt::Debug for PropertyMetadata {
             .finish()
     }
 }
-
 
 /// Metadata for a single method parameter.
 #[derive(Debug, Clone)]
