@@ -121,12 +121,12 @@ impl DynMethodRegistry {
         target: &mut dyn Any,
         args: DynMethodArgs,
     ) -> Result<DynMethodReturnValue, DynDispatchError> {
-        let method = self
-            .get_method(receiver_name, method_name)
-            .ok_or_else(|| DynDispatchError::NotFound {
+        let method = self.get_method(receiver_name, method_name).ok_or_else(|| {
+            DynDispatchError::NotFound {
                 receiver_name: receiver_name.to_string(),
                 method_name: method_name.to_string(),
-            })?;
+            }
+        })?;
         Ok((method.caller)(target, args))
     }
 

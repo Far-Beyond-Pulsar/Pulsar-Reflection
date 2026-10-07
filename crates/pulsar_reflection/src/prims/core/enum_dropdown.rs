@@ -36,7 +36,7 @@ impl gpui::Render for EnumDropdownEditor {
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
         use gpui::prelude::*;
-        use ui::{ActiveTheme, Sizable, button::Button, menu::PopupMenuItem};
+        use ui::{button::Button, menu::PopupMenuItem, ActiveTheme, Sizable};
 
         let Some(variants) = self.variants else {
             return crate::prims::editor_row(

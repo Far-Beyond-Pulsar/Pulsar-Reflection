@@ -36,7 +36,7 @@ pub fn editor_row(
     cx: &gpui::App,
 ) -> gpui::AnyElement {
     use gpui::prelude::*;
-    use ui::{ActiveTheme, h_flex};
+    use ui::{h_flex, ActiveTheme};
 
     h_flex()
         .w_full()

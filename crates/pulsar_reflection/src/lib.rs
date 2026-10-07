@@ -31,6 +31,7 @@ pub mod methods;
 pub mod dyn_registry;
 
 // New runtime type reflection system
+pub mod asset_refs;
 pub mod conversions;
 pub mod dynamic_types;
 pub mod json_codec;
@@ -64,6 +65,7 @@ pub use dyn_registry::{
 pub use inventory;
 
 // Re-export runtime type system
+pub use asset_refs::TextureSrc;
 pub use conversions::{
     ConversionInfo, ConversionRegistration, ConversionRegistry, CONVERSION_REGISTRY,
 };
