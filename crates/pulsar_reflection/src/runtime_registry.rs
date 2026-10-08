@@ -5,7 +5,6 @@
 
 use crate::runtime_types::RuntimeTypeInfo;
 use crate::type_traits::{ReflectError, ReflectResult};
-use once_cell::sync::Lazy;
 use serde_json::Value;
 use std::any::Any;
 use std::any::TypeId;
@@ -45,12 +44,13 @@ pub struct RuntimeTypeRegistry {
 
 impl RuntimeTypeRegistry {
     /// Create a new registry from inventory
-    fn new() -> Self {
+    /// The registry of `registrations`: this copy's `inventory` collection,
+    /// extended by attached copies' (see [`crate::runtime`]).
+    pub(crate) fn from_registrations(registrations: &[&'static RuntimeTypeRegistration]) -> Self {
         let mut types = HashMap::new();
         let mut by_name = HashMap::new();
 
-        // Auto-discover all RuntimeTypeRegistration entries via inventory
-        for registration in inventory::iter::<RuntimeTypeRegistration> {
+        for &registration in registrations {
             let type_info = (registration.type_info)();
 
             types.insert(
@@ -177,7 +177,8 @@ impl fmt::Debug for RuntimeTypeRegistry {
 ///
 /// Lazily initialized on first access. All reflectable types are automatically
 /// registered via the `inventory` crate.
-pub static RUNTIME_TYPE_REGISTRY: Lazy<RuntimeTypeRegistry> = Lazy::new(RuntimeTypeRegistry::new);
+pub static RUNTIME_TYPE_REGISTRY: crate::runtime::Shared<RuntimeTypeRegistry> =
+    crate::runtime::Shared::new(|runtime| (runtime.runtime_types)());
 
 use std::fmt;
 

@@ -46,7 +46,7 @@
 use crate::runtime_types::RuntimeTypeInfo;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{Arc, Mutex};
 
 /// Result of a rendering operation
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -107,11 +107,12 @@ pub struct TypeRendererRegistry {
 
 impl TypeRendererRegistry {
     /// Create a new registry from inventory
-    fn new() -> Self {
+    /// The registry of `registrations`: this copy's `inventory` collection
+    /// (attached copies' are registered into it; see [`crate::runtime`]).
+    pub(crate) fn from_registrations(registrations: &[&'static TypeRendererRegistration]) -> Self {
         let mut renderers = HashMap::new();
 
-        // Auto-discover all type renderer registrations
-        for registration in inventory::iter::<TypeRendererRegistration> {
+        for &registration in registrations {
             renderers.insert(registration.type_id, registration.renderer.clone());
         }
 
@@ -160,8 +161,8 @@ impl TypeRendererRegistry {
 ///
 /// Lazily initialized on first access. Custom renderers are automatically
 /// registered via the `inventory` crate.
-pub static TYPE_RENDERER_REGISTRY: LazyLock<Mutex<TypeRendererRegistry>> =
-    LazyLock::new(|| Mutex::new(TypeRendererRegistry::new()));
+pub static TYPE_RENDERER_REGISTRY: crate::runtime::Shared<Mutex<TypeRendererRegistry>> =
+    crate::runtime::Shared::new(|runtime| (runtime.type_renderers)());
 
 /// Helper function to register a custom renderer at runtime
 ///
@@ -197,7 +198,7 @@ mod tests {
 
     #[test]
     fn test_renderer_registry() {
-        let mut registry = TypeRendererRegistry::new();
+        let mut registry = TypeRendererRegistry::from_registrations(&[]);
         assert_eq!(registry.len(), 0);
 
         let test_type_id = TypeId::of::<i32>();

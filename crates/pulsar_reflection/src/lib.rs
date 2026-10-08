@@ -35,6 +35,7 @@ pub mod asset_refs;
 pub mod conversions;
 pub mod dynamic_types;
 pub mod json_codec;
+pub mod runtime;
 pub mod runtime_registry;
 pub mod runtime_types;
 pub mod type_renderer;
@@ -242,8 +243,8 @@ inventory::collect!(EnumVariantDocs);
 
 /// The variant docs registered for `type_id`, if any.
 pub fn enum_variant_docs(type_id: std::any::TypeId) -> Option<&'static [&'static str]> {
-    inventory::iter::<EnumVariantDocs>
-        .into_iter()
+    runtime::enum_docs()
+        .iter()
         .find(|entry| entry.type_id == type_id)
         .map(|entry| entry.docs)
 }
@@ -298,7 +299,7 @@ pub fn apply_scene_props_for_class(
     props: &mut HashMap<String, Value>,
     component_data: Option<&Value>,
 ) -> bool {
-    for registration in inventory::iter::<ScenePropsApplierRegistration> {
+    for registration in runtime::scene_props() {
         if registration.class_name == class_name {
             (registration.apply)(props, component_data);
             return true;
@@ -309,8 +310,8 @@ pub fn apply_scene_props_for_class(
 
 /// Return all registered scene-props applier class names.
 pub fn registered_scene_props_classes() -> Vec<&'static str> {
-    inventory::iter::<ScenePropsApplierRegistration>
-        .into_iter()
+    runtime::scene_props()
+        .iter()
         .map(|r| r.class_name)
         .collect()
 }
@@ -572,7 +573,7 @@ pub fn apply_runtime_behavior_for_class(
     component_data: &Value,
     context: &mut dyn ComponentRuntimeContext,
 ) -> bool {
-    for registration in inventory::iter::<RuntimeBehaviorRegistration> {
+    for registration in runtime::runtime_behaviors() {
         if registration.class_name == class_name {
             (registration.sync)(owner, component_index, component_data, context);
             return true;

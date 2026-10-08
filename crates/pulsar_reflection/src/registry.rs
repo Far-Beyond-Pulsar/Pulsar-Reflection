@@ -4,7 +4,6 @@
 //! `#[derive(EngineClass)]` at link time (zero runtime cost).
 
 use crate::{EngineClass, MethodMetadata};
-use once_cell::sync::Lazy;
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -53,11 +52,12 @@ pub struct EngineClassRegistry {
 }
 
 impl EngineClassRegistry {
-    fn new() -> Self {
+    /// The registry of `registrations`: this copy's `inventory` collection,
+    /// extended by attached copies' (see [`crate::runtime`]).
+    pub(crate) fn from_registrations(registrations: &[&'static EngineClassRegistration]) -> Self {
         let mut classes = HashMap::new();
 
-        // Auto-discover all #[derive(EngineClass)] types via inventory
-        for registration in inventory::iter::<EngineClassRegistration> {
+        for &registration in registrations {
             classes.insert(
                 registration.name,
                 RegistryEntry {
@@ -162,9 +162,9 @@ impl EngineClassRegistry {
             return None;
         }
 
-        // Collect methods from all matching registrations in inventory
+        // Collect methods from all matching registrations
         let mut all_methods = Vec::new();
-        for registration in inventory::iter::<ComponentMethodRegistration> {
+        for registration in crate::runtime::component_method_registrations() {
             if registration.class_name == class_name {
                 all_methods.extend((registration.methods)());
             }
@@ -185,9 +185,10 @@ impl EngineClassRegistry {
 
 /// Global singleton registry instance
 ///
-/// Lazily initialized on first access. All engine classes are automatically
-/// registered via the `inventory` crate.
-pub static REGISTRY: Lazy<EngineClassRegistry> = Lazy::new(EngineClassRegistry::new);
+/// Built on first access from every `inventory`-registered class, and
+/// shared by every linked copy of this crate (see [`crate::runtime`]).
+pub static REGISTRY: crate::runtime::Shared<EngineClassRegistry> =
+    crate::runtime::Shared::new(|runtime| (runtime.engine_classes)());
 
 #[cfg(test)]
 mod tests {
