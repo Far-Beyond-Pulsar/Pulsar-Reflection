@@ -400,8 +400,9 @@ impl Default for DynamicTypeRegistry {
 }
 
 /// Global instance of the dynamic type registry
-pub static DYNAMIC_TYPE_REGISTRY: std::sync::LazyLock<DynamicTypeRegistry> =
-    std::sync::LazyLock::new(|| DynamicTypeRegistry::new());
+/// Shared by every linked copy of this crate (see [`crate::runtime`]).
+pub static DYNAMIC_TYPE_REGISTRY: crate::runtime::Shared<DynamicTypeRegistry> =
+    crate::runtime::Shared::new(|runtime| (runtime.dynamic_types)());
 
 #[cfg(test)]
 mod tests {

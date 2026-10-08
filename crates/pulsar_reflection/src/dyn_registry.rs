@@ -22,7 +22,6 @@
 use std::any::Any;
 use std::collections::HashMap;
 
-use once_cell::sync::Lazy;
 
 use crate::{MethodFlags, MethodParameter, MethodReturnType};
 
@@ -74,9 +73,11 @@ pub struct DynMethodRegistry {
 }
 
 impl DynMethodRegistry {
-    fn new() -> Self {
+    /// The registry of `registrations`: this copy's `inventory` collection,
+    /// extended by attached copies' (see [`crate::runtime`]).
+    pub(crate) fn from_registrations(registrations: &[&'static DynMethodRegistration]) -> Self {
         let mut receivers: HashMap<&'static str, Vec<&'static str>> = HashMap::new();
-        for registration in inventory::iter::<DynMethodRegistration> {
+        for &registration in registrations {
             let names = receivers.entry(registration.receiver_name).or_default();
             for method in (registration.methods)() {
                 names.push(method.name);
@@ -94,7 +95,7 @@ impl DynMethodRegistry {
             return None;
         }
         let mut all = Vec::new();
-        for registration in inventory::iter::<DynMethodRegistration> {
+        for registration in crate::runtime::dyn_method_registrations() {
             if registration.receiver_name == receiver_name {
                 all.extend((registration.methods)());
             }
@@ -164,7 +165,9 @@ impl std::error::Error for DynDispatchError {}
 /// Global singleton, lazily built from every [`DynMethodRegistration`]
 /// collected at link time — the `dyn`-receiver counterpart to
 /// [`crate::registry::REGISTRY`].
-pub static DYN_METHOD_REGISTRY: Lazy<DynMethodRegistry> = Lazy::new(DynMethodRegistry::new);
+/// Shared by every linked copy of this crate (see [`crate::runtime`]).
+pub static DYN_METHOD_REGISTRY: crate::runtime::Shared<DynMethodRegistry> =
+    crate::runtime::Shared::new(|runtime| (runtime.dyn_methods)());
 
 #[cfg(test)]
 mod tests {
@@ -200,7 +203,7 @@ mod tests {
 
     #[test]
     fn invoke_by_name_reaches_the_real_instance() {
-        let registry = DynMethodRegistry::new();
+        let registry = DynMethodRegistry::from_registrations(crate::runtime::dyn_method_registrations());
         let mut widget = Widget { count: 0 };
 
         assert!(registry.get_method("widget", "bump").is_some());

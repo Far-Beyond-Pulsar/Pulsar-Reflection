@@ -9,7 +9,6 @@
 
 use crate::{ReflectResult, RUNTIME_TYPE_REGISTRY};
 use inventory;
-use once_cell::sync::Lazy;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 
@@ -62,10 +61,12 @@ pub struct ConversionRegistry {
 }
 
 impl ConversionRegistry {
-    fn new() -> Self {
+    /// The registry of `registrations`: this copy's `inventory` collection,
+    /// extended by attached copies' (see [`crate::runtime`]).
+    pub(crate) fn from_registrations(registrations: &[&'static ConversionRegistration]) -> Self {
         let mut by_id = HashMap::new();
         let mut by_types = HashMap::new();
-        for registration in inventory::iter::<ConversionRegistration> {
+        for &registration in registrations {
             let source_type_id = (registration.source_type_id)();
             let target_type_id = (registration.target_type_id)();
             // Duplicate ids or edges are ambiguous and must not depend on link
@@ -132,7 +133,9 @@ impl ConversionRegistry {
     }
 }
 
-pub static CONVERSION_REGISTRY: Lazy<ConversionRegistry> = Lazy::new(ConversionRegistry::new);
+/// Shared by every linked copy of this crate (see [`crate::runtime`]).
+pub static CONVERSION_REGISTRY: crate::runtime::Shared<ConversionRegistry> =
+    crate::runtime::Shared::new(|runtime| (runtime.conversions)());
 
 /// Register an arbitrary conversion function with runtime reflection.
 ///

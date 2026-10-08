@@ -20,7 +20,6 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::fmt;
 
-use once_cell::sync::Lazy;
 
 /// A Rust type named in a method signature. Function pointers rather than
 /// values so a registration stays const-constructible.
@@ -290,9 +289,11 @@ pub struct TypeMethods {
 }
 
 impl MethodRegistry {
-    fn collect() -> Self {
+    /// The registry of `registrations`: this copy's `inventory` collection,
+    /// extended by attached copies' (see [`crate::runtime`]).
+    pub(crate) fn from_registrations(registrations: &[&'static TypeMethodRegistration]) -> Self {
         let mut by_type: HashMap<TypeId, TypeMethods> = HashMap::new();
-        for registration in inventory::iter::<TypeMethodRegistration> {
+        for &registration in registrations {
             let entry = by_type
                 .entry(registration.ty.type_id())
                 .or_insert_with(|| TypeMethods {
@@ -337,7 +338,9 @@ impl MethodRegistry {
     }
 }
 
-pub static METHOD_REGISTRY: Lazy<MethodRegistry> = Lazy::new(MethodRegistry::collect);
+/// Shared by every linked copy of this crate (see [`crate::runtime`]).
+pub static METHOD_REGISTRY: crate::runtime::Shared<MethodRegistry> =
+    crate::runtime::Shared::new(|runtime| (runtime.methods)());
 
 /// Methods registered on the type with `TypeId` `ty` (empty if none).
 pub fn methods_of(ty: TypeId) -> &'static [&'static ReflectedMethod] {
