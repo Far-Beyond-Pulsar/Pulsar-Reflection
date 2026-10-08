@@ -31,13 +31,13 @@ use crate::registry::{ComponentMethodRegistration, EngineClassRegistration, Engi
 use crate::runtime_registry::{RuntimeTypeRegistration, RuntimeTypeRegistry};
 use crate::type_renderer::{TypeRendererRegistration, TypeRendererRegistry};
 use crate::{
-    EnumVariantDocs, RuntimeBehaviorRegistration, ScenePropsApplierRegistration,
+    EnumVariantDocs, ScenePropsApplierRegistration,
     UiPropertyEditorHint,
 };
 
 /// Version of [`Runtime`]'s ABI. Bump it on any change to `Runtime`'s fields
 /// or to a type passed through them.
-pub const ABI_VERSION: u64 = 1;
+pub const ABI_VERSION: u64 = 2;
 
 const FINGERPRINT: u64 = {
     let parts = [
@@ -83,7 +83,6 @@ pub struct Runtime {
     pub(crate) editor_hints: fn() -> &'static [&'static UiPropertyEditorHint],
     pub(crate) enum_docs: fn() -> &'static [&'static EnumVariantDocs],
     pub(crate) scene_props: fn() -> &'static [&'static ScenePropsApplierRegistration],
-    pub(crate) runtime_behaviors: fn() -> &'static [&'static RuntimeBehaviorRegistration],
     pub(crate) add_registrations: fn(&Registrations),
 }
 
@@ -100,7 +99,6 @@ pub struct Registrations {
     editor_hints: Vec<&'static UiPropertyEditorHint>,
     enum_docs: Vec<&'static EnumVariantDocs>,
     scene_props: Vec<&'static ScenePropsApplierRegistration>,
-    runtime_behaviors: Vec<&'static RuntimeBehaviorRegistration>,
 }
 
 fn collected<T: inventory::Collect>() -> Vec<&'static T> {
@@ -120,7 +118,6 @@ impl Registrations {
             editor_hints: collected(),
             enum_docs: collected(),
             scene_props: collected(),
-            runtime_behaviors: collected(),
         }
     }
 }
@@ -257,7 +254,6 @@ static COMPONENT_METHODS: AppendList<ComponentMethodRegistration> = AppendList::
 static EDITOR_HINTS: AppendList<UiPropertyEditorHint> = AppendList::new(collected);
 static ENUM_DOCS: AppendList<EnumVariantDocs> = AppendList::new(collected);
 static SCENE_PROPS: AppendList<ScenePropsApplierRegistration> = AppendList::new(collected);
-static RUNTIME_BEHAVIORS: AppendList<RuntimeBehaviorRegistration> = AppendList::new(collected);
 
 fn add_registrations(r: &Registrations) {
     ENGINE_CLASSES.extend(&r.engine_classes);
@@ -275,7 +271,6 @@ fn add_registrations(r: &Registrations) {
     EDITOR_HINTS.extend(&r.editor_hints);
     ENUM_DOCS.extend(&r.enum_docs);
     SCENE_PROPS.extend(&r.scene_props);
-    RUNTIME_BEHAVIORS.extend(&r.runtime_behaviors);
 }
 
 static OWN: Runtime = Runtime {
@@ -292,7 +287,6 @@ static OWN: Runtime = Runtime {
     editor_hints: || EDITOR_HINTS.get(),
     enum_docs: || ENUM_DOCS.get(),
     scene_props: || SCENE_PROPS.get(),
-    runtime_behaviors: || RUNTIME_BEHAVIORS.get(),
     add_registrations,
 };
 
@@ -337,10 +331,6 @@ pub(crate) fn enum_docs() -> &'static [&'static EnumVariantDocs] {
 
 pub(crate) fn scene_props() -> &'static [&'static ScenePropsApplierRegistration] {
     (runtime().scene_props)()
-}
-
-pub(crate) fn runtime_behaviors() -> &'static [&'static RuntimeBehaviorRegistration] {
-    (runtime().runtime_behaviors)()
 }
 
 /// Why [`attach`] refused a runtime.
