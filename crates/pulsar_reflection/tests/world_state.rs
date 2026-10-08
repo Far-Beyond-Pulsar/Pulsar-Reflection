@@ -26,9 +26,8 @@ const LISTED: &[(&str, usize, &str)] = &[
     ),
     (
         "lib.rs",
-        4,
-        "the editor hint, enum doc, scene props and runtime behavior inventory lists, read \
-         through the runtime",
+        3,
+        "the editor hint, enum doc and scene props inventory lists, read through the runtime",
     ),
     (
         "methods.rs",
@@ -53,7 +52,7 @@ const LISTED: &[(&str, usize, &str)] = &[
     ),
     (
         "runtime.rs",
-        14,
+        13,
         "the runtime itself: OWN, ATTACHED, and the registries it owns",
     ),
     (
