@@ -30,10 +30,7 @@ use crate::methods::{MethodRegistry, TypeMethodRegistration};
 use crate::registry::{ComponentMethodRegistration, EngineClassRegistration, EngineClassRegistry};
 use crate::runtime_registry::{RuntimeTypeRegistration, RuntimeTypeRegistry};
 use crate::type_renderer::{TypeRendererRegistration, TypeRendererRegistry};
-use crate::{
-    EnumVariantDocs, ScenePropsApplierRegistration,
-    UiPropertyEditorHint,
-};
+use crate::{EnumVariantDocs, ScenePropsApplierRegistration, UiPropertyEditorHint};
 
 /// Version of [`Runtime`]'s ABI. Bump it on any change to `Runtime`'s fields
 /// or to a type passed through them.
@@ -78,7 +75,8 @@ pub struct Runtime {
     pub(crate) dyn_methods: fn() -> &'static DynMethodRegistry,
     pub(crate) dynamic_types: fn() -> &'static DynamicTypeRegistry,
     pub(crate) type_renderers: fn() -> &'static Mutex<TypeRendererRegistry>,
-    pub(crate) component_method_registrations: fn() -> &'static [&'static ComponentMethodRegistration],
+    pub(crate) component_method_registrations:
+        fn() -> &'static [&'static ComponentMethodRegistration],
     pub(crate) dyn_method_registrations: fn() -> &'static [&'static DynMethodRegistration],
     pub(crate) editor_hints: fn() -> &'static [&'static UiPropertyEditorHint],
     pub(crate) enum_docs: fn() -> &'static [&'static EnumVariantDocs],
@@ -169,7 +167,8 @@ impl<T: 'static> AppendList<T> {
         let _write = self.write.lock().unwrap_or_else(|e| e.into_inner());
         let mut next = self.get_locked().to_vec();
         next.extend_from_slice(entries);
-        self.list.store(Box::leak(Box::new(next)), Ordering::Release);
+        self.list
+            .store(Box::leak(Box::new(next)), Ordering::Release);
     }
 }
 

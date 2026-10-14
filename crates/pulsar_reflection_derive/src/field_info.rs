@@ -1,5 +1,5 @@
 use quote::quote;
-use syn::{Field, Ident, punctuated::Punctuated};
+use syn::{punctuated::Punctuated, Field, Ident};
 
 pub fn generate_field_infos(
     fields: &Punctuated<Field, syn::token::Comma>,

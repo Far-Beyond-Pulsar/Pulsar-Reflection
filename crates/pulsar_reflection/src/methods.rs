@@ -20,7 +20,6 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::fmt;
 
-
 /// A Rust type named in a method signature. Function pointers rather than
 /// values so a registration stays const-constructible.
 #[derive(Clone, Copy)]

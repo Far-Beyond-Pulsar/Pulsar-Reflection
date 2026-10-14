@@ -189,7 +189,3 @@ pub fn generate_enum_impl(
         }
     }
 }
-
-
-
-

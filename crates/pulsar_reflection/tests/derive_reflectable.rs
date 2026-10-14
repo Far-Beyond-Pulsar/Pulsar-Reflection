@@ -25,7 +25,9 @@ fn deriving_reflectable_on_a_struct_with_plain_fields_compiles_and_reports_both_
     let type_info = DeriveReflectableTestConfig::type_info();
     assert_eq!(type_info.type_name, "DeriveReflectableTestConfig");
 
-    let fields = type_info.fields().expect("a named-field struct must report Some(fields)");
+    let fields = type_info
+        .fields()
+        .expect("a named-field struct must report Some(fields)");
     let names: Vec<&str> = fields.iter().map(|f| f.name).collect();
     assert_eq!(names, vec!["gravity", "friction"]);
 
@@ -48,7 +50,10 @@ fn type_info_is_cached_not_recomputed_on_every_call() {
 
 #[test]
 fn serialize_then_deserialize_round_trips_through_the_derived_impl() {
-    let value = DeriveReflectableTestConfig { gravity: -9.8, friction: 0.4 };
+    let value = DeriveReflectableTestConfig {
+        gravity: -9.8,
+        friction: 0.4,
+    };
 
     let mut serializer = pulsar_reflection::JsonSerializer::new();
     value.serialize(&mut serializer).expect("serialize");
@@ -69,6 +74,9 @@ fn the_type_registers_itself_in_the_global_runtime_registry_via_inventory() {
     // RuntimeTypeRegistry::new correctly calls through it while building
     // the registry.
     let registered = pulsar_reflection::RUNTIME_TYPE_REGISTRY.get::<DeriveReflectableTestConfig>();
-    assert!(registered.is_some(), "derive must auto-register via inventory, same as every other Reflectable type");
+    assert!(
+        registered.is_some(),
+        "derive must auto-register via inventory, same as every other Reflectable type"
+    );
     assert_eq!(registered.unwrap().type_name, "DeriveReflectableTestConfig");
 }

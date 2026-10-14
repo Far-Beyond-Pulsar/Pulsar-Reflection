@@ -22,7 +22,6 @@
 use std::any::Any;
 use std::collections::HashMap;
 
-
 use crate::{MethodFlags, MethodParameter, MethodReturnType};
 
 /// Boxed method args, reusing the same shape as [`crate::MethodArgs`]
@@ -203,7 +202,8 @@ mod tests {
 
     #[test]
     fn invoke_by_name_reaches_the_real_instance() {
-        let registry = DynMethodRegistry::from_registrations(crate::runtime::dyn_method_registrations());
+        let registry =
+            DynMethodRegistry::from_registrations(crate::runtime::dyn_method_registrations());
         let mut widget = Widget { count: 0 };
 
         assert!(registry.get_method("widget", "bump").is_some());
