@@ -66,7 +66,12 @@ pub use dyn_registry::{
 pub use inventory;
 
 // Re-export runtime type system
-pub use asset_refs::TextureSrc;
+pub use asset_refs::{
+    AnimationGraphAssetKind, AnimationMontageAssetKind, AnimationSequenceAssetKind,
+    AssetKind, AssetRef, BlendSpaceAssetKind, ImageAssetKind, ImageRef, MaterialAssetKind,
+    MaterialRef, SkeletalMeshAssetKind, SkeletonAssetKind, TextureAssetKind, TextureRef,
+    TextureSrc,
+};
 pub use conversions::{
     ConversionInfo, ConversionRegistration, ConversionRegistry, CONVERSION_REGISTRY,
 };
