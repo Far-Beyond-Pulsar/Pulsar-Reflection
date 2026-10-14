@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{Expr, Item, ItemType, Meta, Path, parse_macro_input, punctuated::Punctuated};
+use syn::{parse_macro_input, punctuated::Punctuated, Expr, Item, ItemType, Meta, Path};
 
 use crate::util;
 
@@ -206,6 +206,3 @@ pub fn expand_primitive_alias(
         #editor_submit
     })
 }
-
-
-

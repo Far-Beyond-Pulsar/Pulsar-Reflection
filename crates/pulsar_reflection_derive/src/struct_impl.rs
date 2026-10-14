@@ -1,5 +1,5 @@
 use quote::quote;
-use syn::{DataStruct, Fields, Ident, ImplGenerics, TypeGenerics, WhereClause, parse_quote};
+use syn::{parse_quote, DataStruct, Fields, Ident, ImplGenerics, TypeGenerics, WhereClause};
 
 use crate::field_info;
 
@@ -203,7 +203,3 @@ fn generate_unit_struct_impl(
         }
     }
 }
-
-
-
-
