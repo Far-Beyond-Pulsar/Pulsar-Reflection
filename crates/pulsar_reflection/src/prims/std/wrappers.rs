@@ -125,6 +125,7 @@ impl_array!(u32, 1);
 impl_array!(u32, 2);
 impl_array!(u32, 3);
 impl_array!(u32, 4);
+impl_array!(u32, 8);
 impl_array!(f32, 12);
 impl_array!(f32, 16);
 impl_array!(u32, 116);
