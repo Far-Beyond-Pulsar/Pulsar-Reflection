@@ -80,3 +80,29 @@ fn the_type_registers_itself_in_the_global_runtime_registry_via_inventory() {
     );
     assert_eq!(registered.unwrap().type_name, "DeriveReflectableTestConfig");
 }
+
+/// A struct property: deserialization moves it out of the parsed fields, so
+/// a field type that is neither `Copy` nor cloned on the way works (it once
+/// generated `*value.downcast_ref::<T>()`, a move out of a reference).
+#[derive(Clone, Debug, Default, PartialEq, Reflectable)]
+pub struct DeriveReflectableTestShape {
+    pub inner: DeriveReflectableTestConfig,
+    pub scale: f32,
+}
+
+#[test]
+fn a_struct_property_round_trips_without_being_copy() {
+    let value = DeriveReflectableTestShape {
+        inner: DeriveReflectableTestConfig {
+            gravity: 1.5,
+            friction: 0.25,
+        },
+        scale: 2.0,
+    };
+    let mut serializer = pulsar_reflection::JsonSerializer::new();
+    value.serialize(&mut serializer).expect("serialize");
+    let mut deserializer = pulsar_reflection::JsonDeserializer::new(serializer.into_json());
+    let round_tripped =
+        DeriveReflectableTestShape::deserialize(&mut deserializer).expect("deserialize");
+    assert_eq!(round_tripped, value);
+}

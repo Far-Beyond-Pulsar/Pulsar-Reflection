@@ -55,16 +55,18 @@ fn generate_named_fields_impl(
         let field_type = &field.ty;
 
         quote! {
+            // Each value moves out of the deserialized map: fields need not
+            // be `Copy` (a struct or `Vec` property) nor cloned.
             #field_name: {
-                let value = fields.get(#field_name_str)
+                let value = fields.remove(#field_name_str)
                     .ok_or_else(|| ::pulsar_reflection::ReflectError::MissingField {
                         struct_name: stringify!(#name),
                         field_name: #field_name_str,
                     })?;
-                *value.downcast_ref::<#field_type>()
-                    .ok_or_else(|| ::pulsar_reflection::ReflectError::TypeMismatch {
+                *value.downcast::<#field_type>()
+                    .map_err(|value| ::pulsar_reflection::ReflectError::TypeMismatch {
                         expected: stringify!(#field_type),
-                        found: format!("{:?}", value.type_id()),
+                        found: format!("{:?}", (*value).type_id()),
                     })?
             }
         }
@@ -104,7 +106,8 @@ fn generate_named_fields_impl(
                     )
                 })?;
 
-                let fields = deserializer.deserialize_struct(fields_info)?;
+                #[allow(unused_mut)]
+                let mut fields = deserializer.deserialize_struct(fields_info)?;
 
                 Ok(Self {
                     #(#deserialize_fields),*
