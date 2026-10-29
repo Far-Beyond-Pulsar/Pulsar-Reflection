@@ -276,6 +276,100 @@ fn deserialize_texture_src(value: serde_json::Value) -> crate::ReflectResult<Tex
 #[allow(dead_code)]
 type RegisteredTextureSrc = TextureSrc;
 
+
+/// Registers a typed asset reference as a reflected value serialized as its
+/// UUID string, so a component can expose `Option<AssetRef<K>>` as a property.
+macro_rules! reflect_asset_ref {
+    ($alias:ident, $kind:ty, $ser:ident, $de:ident) => {
+        fn $ser(value: &AssetRef<$kind>) -> crate::ReflectResult<serde_json::Value> {
+            Ok(serde_json::Value::String(value.as_str().to_owned()))
+        }
+
+        fn $de(value: serde_json::Value) -> crate::ReflectResult<AssetRef<$kind>> {
+            value
+                .as_str()
+                .and_then(AssetRef::parse)
+                .ok_or_else(|| crate::ReflectError::TypeMismatch {
+                    expected: stringify!($kind),
+                    found: format!("{value:?}"),
+                })
+        }
+
+        #[crate::pulsar_type(
+            serialize_json_with = $ser,
+            deserialize_json_with = $de
+        )]
+        #[allow(dead_code)]
+        type $alias = AssetRef<$kind>;
+    };
+}
+
+reflect_asset_ref!(
+    RegisteredSkeletalMeshRef,
+    SkeletalMeshAssetKind,
+    serialize_skeletal_mesh_ref,
+    deserialize_skeletal_mesh_ref
+);
+reflect_asset_ref!(
+    RegisteredAnimationGraphRef,
+    AnimationGraphAssetKind,
+    serialize_animation_graph_ref,
+    deserialize_animation_graph_ref
+);
+
+/// The optional form components use for an unset slot: `null` or a UUID string.
+macro_rules! reflect_optional_asset_ref {
+    ($alias:ident, $kind:ty, $ser:ident, $de:ident) => {
+        fn $ser(value: &Option<AssetRef<$kind>>) -> crate::ReflectResult<serde_json::Value> {
+            Ok(match value {
+                Some(reference) => serde_json::Value::String(reference.as_str().to_owned()),
+                None => serde_json::Value::Null,
+            })
+        }
+
+        fn $de(value: serde_json::Value) -> crate::ReflectResult<Option<AssetRef<$kind>>> {
+            if value.is_null() {
+                return Ok(None);
+            }
+            value
+                .as_str()
+                .and_then(AssetRef::parse)
+                .map(Some)
+                .ok_or_else(|| crate::ReflectError::TypeMismatch {
+                    expected: concat!("Option<AssetRef<", stringify!($kind), ">>"),
+                    found: format!("{value:?}"),
+                })
+        }
+
+        ::inventory::submit! {
+            crate::RuntimeTypeRegistration {
+                type_info: <Option<AssetRef<$kind>> as crate::Reflectable>::type_info,
+                serialize_json: |value| match value.downcast_ref::<Option<AssetRef<$kind>>>() {
+                    Some(typed) => $ser(typed),
+                    None => Err(crate::ReflectError::SerializationFailed(
+                        concat!("expected Option<AssetRef<", stringify!($kind), ">>").into(),
+                    )),
+                },
+                deserialize_json: |value| {
+                    $de(value).map(|v| Box::new(v) as Box<dyn std::any::Any>)
+                },
+            }
+        }
+    };
+}
+
+reflect_optional_asset_ref!(
+    RegisteredOptionalSkeletalMeshRef,
+    SkeletalMeshAssetKind,
+    serialize_optional_skeletal_mesh_ref,
+    deserialize_optional_skeletal_mesh_ref
+);
+reflect_optional_asset_ref!(
+    RegisteredOptionalAnimationGraphRef,
+    AnimationGraphAssetKind,
+    serialize_optional_animation_graph_ref,
+    deserialize_optional_animation_graph_ref
+);
 #[cfg(test)]
 mod animation_kind_tests {
     use super::*;
