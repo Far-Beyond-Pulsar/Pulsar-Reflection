@@ -139,12 +139,32 @@ impl AssetKind for BlendSpaceAssetKind {
 pub enum AnimationMontageAssetKind {}
 impl AssetKind for AnimationMontageAssetKind {
     const KIND: &'static str = "anim_montage";
-    const EXTENSIONS: &'static [&'static str] = &["montage", "anim_montage"];
+    const EXTENSIONS: &'static [&'static str] = &["montage"];
 }
 pub enum AnimationGraphAssetKind {}
 impl AssetKind for AnimationGraphAssetKind {
     const KIND: &'static str = "anim_graph";
-    const EXTENSIONS: &'static [&'static str] = &["animgraph", "anim_graph"];
+    const EXTENSIONS: &'static [&'static str] = &["animgraph"];
+}
+pub enum RetargetProfileAssetKind {}
+impl AssetKind for RetargetProfileAssetKind {
+    const KIND: &'static str = "anim_retarget";
+    const EXTENSIONS: &'static [&'static str] = &["animretarget"];
+}
+pub enum IkRigAssetKind {}
+impl AssetKind for IkRigAssetKind {
+    const KIND: &'static str = "ik_rig";
+    const EXTENSIONS: &'static [&'static str] = &["ikrig"];
+}
+pub enum IkRetargeterAssetKind {}
+impl AssetKind for IkRetargeterAssetKind {
+    const KIND: &'static str = "ik_retarget";
+    const EXTENSIONS: &'static [&'static str] = &["ikretarget"];
+}
+pub enum PoseDatabaseAssetKind {}
+impl AssetKind for PoseDatabaseAssetKind {
+    const KIND: &'static str = "pose_db";
+    const EXTENSIONS: &'static [&'static str] = &["posedb"];
 }
 
 pub type TextureRef = AssetRef<TextureAssetKind>;
@@ -255,3 +275,59 @@ fn deserialize_texture_src(value: serde_json::Value) -> crate::ReflectResult<Tex
 )]
 #[allow(dead_code)]
 type RegisteredTextureSrc = TextureSrc;
+
+#[cfg(test)]
+mod animation_kind_tests {
+    use super::*;
+    use std::collections::HashSet;
+    use std::path::Path;
+
+    #[test]
+    fn animation_kinds_have_one_unique_extension_each() {
+        let kinds: [(&str, &[&str]); 10] = [
+            (SkeletonAssetKind::KIND, SkeletonAssetKind::EXTENSIONS),
+            (SkeletalMeshAssetKind::KIND, SkeletalMeshAssetKind::EXTENSIONS),
+            (AnimationSequenceAssetKind::KIND, AnimationSequenceAssetKind::EXTENSIONS),
+            (BlendSpaceAssetKind::KIND, BlendSpaceAssetKind::EXTENSIONS),
+            (AnimationMontageAssetKind::KIND, AnimationMontageAssetKind::EXTENSIONS),
+            (AnimationGraphAssetKind::KIND, AnimationGraphAssetKind::EXTENSIONS),
+            (RetargetProfileAssetKind::KIND, RetargetProfileAssetKind::EXTENSIONS),
+            (IkRigAssetKind::KIND, IkRigAssetKind::EXTENSIONS),
+            (IkRetargeterAssetKind::KIND, IkRetargeterAssetKind::EXTENSIONS),
+            (PoseDatabaseAssetKind::KIND, PoseDatabaseAssetKind::EXTENSIONS),
+        ];
+        let mut seen_kinds = HashSet::new();
+        let mut seen_extensions = HashSet::new();
+        for (kind, extensions) in kinds {
+            assert!(seen_kinds.insert(kind), "duplicate kind {kind}");
+            assert_eq!(extensions.len(), 1, "{kind} must have exactly one extension");
+            assert!(seen_extensions.insert(extensions[0]), "shared extension");
+        }
+    }
+
+    #[test]
+    fn kinds_only_accept_their_own_extension() {
+        assert!(AnimationMontageAssetKind::accepts_path(Path::new("a/b.montage")));
+        assert!(!AnimationMontageAssetKind::accepts_path(Path::new("a/b.anim_montage")));
+        assert!(!AnimationMontageAssetKind::accepts_path(Path::new("a/b.animmontage")));
+        assert!(!AnimationGraphAssetKind::accepts_path(Path::new("a/b.anim_graph")));
+        assert!(IkRigAssetKind::accepts_path(Path::new("rig.IKRIG")));
+        assert!(!IkRigAssetKind::accepts_path(Path::new("rig.ikretarget")));
+        assert!(PoseDatabaseAssetKind::accepts_path(Path::new("x.posedb")));
+    }
+
+    #[test]
+    fn typed_refs_round_trip_as_plain_uuid_strings() {
+        let reference = IkRetargeterAssetKind::default_ref();
+        let text = serde_json::to_string(&reference).unwrap();
+        let back: AssetRef<IkRetargeterAssetKind> = serde_json::from_str(&text).unwrap();
+        assert_eq!(reference, back);
+        assert!(serde_json::from_str::<AssetRef<IkRigAssetKind>>("\"not-a-uuid\"").is_err());
+    }
+
+    impl IkRetargeterAssetKind {
+        fn default_ref() -> AssetRef<Self> {
+            AssetRef::new()
+        }
+    }
+}
