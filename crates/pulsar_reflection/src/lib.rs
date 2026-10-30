@@ -68,8 +68,9 @@ pub use inventory;
 // Re-export runtime type system
 pub use asset_refs::{
     AnimationGraphAssetKind, AnimationMontageAssetKind, AnimationSequenceAssetKind,
-    AssetKind, AssetRef, BlendSpaceAssetKind, ImageAssetKind, ImageRef, MaterialAssetKind,
-    MaterialRef, SkeletalMeshAssetKind, SkeletonAssetKind, TextureAssetKind, TextureRef,
+    AssetKind, AssetRef, BlendSpaceAssetKind, IkRetargeterAssetKind, IkRigAssetKind,
+    ImageAssetKind, ImageRef, MaterialAssetKind, MaterialRef, PoseDatabaseAssetKind,
+    RetargetProfileAssetKind, SkeletalMeshAssetKind, SkeletonAssetKind, TextureAssetKind, TextureRef,
     TextureSrc,
 };
 pub use conversions::{
