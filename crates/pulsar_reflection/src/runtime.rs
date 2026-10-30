@@ -29,12 +29,13 @@ use crate::dynamic_types::DynamicTypeRegistry;
 use crate::methods::{MethodRegistry, TypeMethodRegistration};
 use crate::registry::{ComponentMethodRegistration, EngineClassRegistration, EngineClassRegistry};
 use crate::runtime_registry::{RuntimeTypeRegistration, RuntimeTypeRegistry};
+use crate::trait_registry::TraitRegistry;
 use crate::type_renderer::{TypeRendererRegistration, TypeRendererRegistry};
 use crate::{EnumVariantDocs, ScenePropsApplierRegistration, UiPropertyEditorHint};
 
 /// Version of [`Runtime`]'s ABI. Bump it on any change to `Runtime`'s fields
 /// or to a type passed through them.
-pub const ABI_VERSION: u64 = 2;
+pub const ABI_VERSION: u64 = 3;
 
 const FINGERPRINT: u64 = {
     let parts = [
@@ -47,6 +48,7 @@ const FINGERPRINT: u64 = {
         size_of::<RuntimeTypeRegistry>(),
         size_of::<DynMethodRegistry>(),
         size_of::<DynamicTypeRegistry>(),
+        size_of::<TraitRegistry>(),
         size_of::<Mutex<TypeRendererRegistry>>(),
         size_of::<TypeId>(),
     ];
@@ -74,6 +76,7 @@ pub struct Runtime {
     pub(crate) runtime_types: fn() -> &'static RuntimeTypeRegistry,
     pub(crate) dyn_methods: fn() -> &'static DynMethodRegistry,
     pub(crate) dynamic_types: fn() -> &'static DynamicTypeRegistry,
+    pub(crate) traits: fn() -> &'static TraitRegistry,
     pub(crate) type_renderers: fn() -> &'static Mutex<TypeRendererRegistry>,
     pub(crate) component_method_registrations:
         fn() -> &'static [&'static ComponentMethodRegistration],
@@ -247,6 +250,7 @@ static RUNTIME_TYPES: Rebuilt<RuntimeTypeRegistry, RuntimeTypeRegistration> =
 static DYN_METHODS: Rebuilt<DynMethodRegistry, DynMethodRegistration> =
     Rebuilt::new(collected, DynMethodRegistry::from_registrations);
 static DYNAMIC_TYPES: LazyLock<DynamicTypeRegistry> = LazyLock::new(DynamicTypeRegistry::new);
+static TRAITS: LazyLock<TraitRegistry> = LazyLock::new(TraitRegistry::new);
 static TYPE_RENDERERS: LazyLock<Mutex<TypeRendererRegistry>> =
     LazyLock::new(|| Mutex::new(TypeRendererRegistry::from_registrations(&collected())));
 static COMPONENT_METHODS: AppendList<ComponentMethodRegistration> = AppendList::new(collected);
@@ -280,6 +284,7 @@ static OWN: Runtime = Runtime {
     runtime_types: || RUNTIME_TYPES.get(),
     dyn_methods: || DYN_METHODS.get(),
     dynamic_types: || &DYNAMIC_TYPES,
+    traits: || &TRAITS,
     type_renderers: || &TYPE_RENDERERS,
     component_method_registrations: || COMPONENT_METHODS.get(),
     dyn_method_registrations: || DYN_METHODS.registrations.get(),

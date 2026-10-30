@@ -38,6 +38,7 @@ pub mod json_codec;
 pub mod runtime;
 pub mod runtime_registry;
 pub mod runtime_types;
+pub mod trait_registry;
 pub mod type_renderer;
 pub mod type_traits;
 
@@ -85,6 +86,12 @@ pub use type_traits::{ReflectError, ReflectResult, Reflectable, TypeDeserializer
 pub use dynamic_types::{
     DynamicFieldInfo, DynamicTypeBuilder, DynamicTypeInfo, DynamicTypeRegistry, DynamicValue,
     TypeTag, DYNAMIC_TYPE_REGISTRY,
+};
+
+// Re-export the language-agnostic trait registry
+pub use trait_registry::{
+    TraitDescriptor, TraitImplementer, TraitMethodDescriptor, TraitParamDescriptor, TraitRegistry,
+    TraitSnapshot, trait_scope_key, TRAIT_REGISTRY,
 };
 
 // Re-export type renderer system

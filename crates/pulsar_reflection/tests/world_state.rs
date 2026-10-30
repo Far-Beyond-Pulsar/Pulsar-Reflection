@@ -52,7 +52,7 @@ const LISTED: &[(&str, usize, &str)] = &[
     ),
     (
         "runtime.rs",
-        13,
+        14,
         "the runtime itself: OWN, ATTACHED, and the registries it owns",
     ),
     (
@@ -64,6 +64,11 @@ const LISTED: &[(&str, usize, &str)] = &[
         "runtime_types.rs",
         2,
         "the wildcard RuntimeTypeInfo, immutable; one in a unit test",
+    ),
+    (
+        "trait_registry.rs",
+        1,
+        "the TRAIT_REGISTRY facade over the runtime",
     ),
     (
         "type_renderer.rs",
