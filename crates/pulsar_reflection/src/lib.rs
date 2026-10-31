@@ -162,6 +162,46 @@ pub struct BoundPropertyEditor {
     pub view: gpui::AnyView,
     /// Push a fresh value into the editor.  A no-op if the value is unchanged.
     pub set_value: Arc<dyn Fn(&dyn Any, &mut gpui::Window, &mut gpui::App) + Send + Sync>,
+    /// Content too large for one row, offered to the panel as rows of its own
+    /// (see [`VirtualRows`]).  `None` for an editor that fits in its row.
+    pub rows: Option<Arc<dyn VirtualRows>>,
+}
+
+/// An editor's content as rows of the panel's own list.
+///
+/// A property whose value is huge (a long array, a deeply nested struct)
+/// cannot be one row: the panel would have to build all of it, or give it a
+/// scroll area of its own.  Such an editor instead keeps its property row as
+/// a header and offers the rest through this trait; the panel inserts the
+/// rows right below the header in its single virtualized list and asks for
+/// only the ones in view.  Rows may have any height.
+///
+/// Contract: [`row_count`](Self::row_count) must be cheap (it is read once
+/// per panel render), and an editor tells the panel when it changes through
+/// the callback given to [`on_change`](Self::on_change).
+#[cfg(feature = "prims-gpui")]
+pub trait VirtualRows: Send + Sync {
+    /// Rows currently offered below the property's own row.
+    fn row_count(&self, cx: &gpui::App) -> usize;
+
+    /// Build row `index` (`0..row_count`).  Called only for rows in view.
+    fn render_row(
+        &self,
+        index: usize,
+        window: &mut gpui::Window,
+        cx: &mut gpui::App,
+    ) -> gpui::AnyElement;
+
+    /// Register the panel's wake-up: call it whenever [`row_count`] changes
+    /// or rows must be rebuilt (an element opened, closed, added, removed).
+    ///
+    /// [`row_count`]: Self::row_count
+    fn on_change(&self, wake: Arc<dyn Fn(&mut gpui::App) + Send + Sync>);
+
+    /// The host re-read the property's value from its source and it may have
+    /// changed.  An editor that skips re-reading an unchanged-looking value
+    /// every frame (to stay cheap on large values) must look again next time.
+    fn mark_stale(&self) {}
 }
 
 #[cfg(feature = "prims-gpui")]
@@ -187,7 +227,14 @@ impl BoundPropertyEditor {
                 };
                 for_set.update(cx, |editor, cx| set(editor, typed, window, cx));
             }),
+            rows: None,
         }
+    }
+
+    /// Offer this editor's content to the panel as rows of its own list.
+    pub fn with_rows(mut self, rows: Arc<dyn VirtualRows>) -> Self {
+        self.rows = Some(rows);
+        self
     }
 
     /// Bind an editor entity that has no value to refresh (read-only or
@@ -196,6 +243,7 @@ impl BoundPropertyEditor {
         Self {
             view: entity.into(),
             set_value: Arc::new(|_, _, _| {}),
+            rows: None,
         }
     }
 }

@@ -152,5 +152,6 @@ pub fn enum_dropdown_editor(
                 }
             });
         }),
+        rows: None,
     }
 }
