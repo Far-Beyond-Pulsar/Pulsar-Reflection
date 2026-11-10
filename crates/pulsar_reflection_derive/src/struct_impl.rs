@@ -1,5 +1,5 @@
 use quote::quote;
-use syn::{parse_quote, DataStruct, Fields, Ident, ImplGenerics, TypeGenerics, WhereClause};
+use syn::{DataStruct, Fields, Ident, ImplGenerics, TypeGenerics, WhereClause};
 
 use crate::field_info;
 
@@ -17,7 +17,7 @@ pub fn generate_struct_impl(
             impl_generics,
             ty_generics,
             where_clause,
-            &fields,
+            fields,
             color_expr,
         ),
         Fields::Unnamed(_) => syn::Error::new_spanned(

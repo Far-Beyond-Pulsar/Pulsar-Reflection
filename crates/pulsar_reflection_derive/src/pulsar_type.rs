@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, punctuated::Punctuated, Expr, Item, ItemType, Meta, Path};
+use syn::{parse_macro_input, punctuated::Punctuated, Item, ItemType, Meta, Path};
 
 use crate::util;
 
