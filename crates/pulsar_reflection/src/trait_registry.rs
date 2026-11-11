@@ -5,8 +5,8 @@
 //! ...). It is not a Rust `trait`: any language a plugin brings (Blueprints,
 //! a scripting language, a native crate) can declare that an asset implements
 //! it and can ask who does. This module holds only the *published result* so
-//! every plugin reads one answer; the host (`engine_fs::TraitDb`) owns how
-//! it is derived from project files.
+//! every plugin reads one answer; the host (`pulsar_traits::TraitDb`) owns how
+//! it is derived from project files and the registered implementer sources.
 //!
 //! Types are plain strings and every value is `serde`-serializable, so a
 //! non-Rust plugin can read a [`TraitSnapshot`] as JSON
@@ -61,12 +61,14 @@ pub struct TraitDescriptor {
     pub methods: Vec<TraitMethodDescriptor>,
 }
 
-/// An asset that implements a trait.
+/// Something that implements a trait.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TraitImplementer {
-    /// Project-relative path of the implementing asset.
+    /// The implementer's id: a project-relative asset path, or
+    /// `component:<Class>` for a native component.
     pub asset: String,
-    /// What kind of asset: `blueprint`, or a plugin's own kind.
+    /// The kind of its source (`pulsar.blueprints.blueprint`,
+    /// `pulsar.native.component`, a plugin's own).
     pub kind: String,
     /// Set when the asset implements a trait that extends this one, and
     /// names that trait's id.
@@ -271,11 +273,17 @@ mod tests {
         );
         assert_eq!(snapshot.get("a").unwrap().name, "Movable");
         assert_eq!(
-            snapshot.get("types\\traits\\movable.trait.json").unwrap().id,
+            snapshot
+                .get("types\\traits\\movable.trait.json")
+                .unwrap()
+                .id,
             "a"
         );
         assert_eq!(snapshot.get("Movable").unwrap().id, "a");
-        assert!(snapshot.get("Dup").is_none(), "ambiguous names do not resolve");
+        assert!(
+            snapshot.get("Dup").is_none(),
+            "ambiguous names do not resolve"
+        );
         assert!(snapshot.get("missing").is_none());
     }
 
@@ -311,7 +319,11 @@ mod tests {
         assert!(registry.snapshot("p2").is_none());
         let held = registry.snapshot("p1").unwrap();
         registry.publish("p1", TraitSnapshot::default());
-        assert_eq!(held.traits().count(), 1, "readers keep the snapshot they took");
+        assert_eq!(
+            held.traits().count(),
+            1,
+            "readers keep the snapshot they took"
+        );
         assert_eq!(registry.snapshot("p1").unwrap().traits().count(), 0);
         assert!(registry.remove("p1"));
         assert!(registry.scopes().is_empty());
