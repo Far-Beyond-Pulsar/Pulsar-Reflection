@@ -21,9 +21,6 @@ pub mod serde;
 #[cfg(feature = "prims-glam")]
 pub mod glam;
 
-#[cfg(feature = "prims-helio")]
-pub mod helio;
-
 /// Shared layout for a built-in editor: muted label on the left, the editor's
 /// own control on the right.
 ///

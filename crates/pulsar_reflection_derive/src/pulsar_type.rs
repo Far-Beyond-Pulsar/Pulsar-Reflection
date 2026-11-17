@@ -149,11 +149,12 @@ pub fn expand_primitive_alias(
         #item_type
 
         #[allow(non_upper_case_globals)]
+        // The alias names the registered type here, so it is the alias's use.
         static #type_info_name: ::std::sync::LazyLock<::pulsar_reflection::RuntimeTypeInfo> = ::std::sync::LazyLock::new(|| ::pulsar_reflection::RuntimeTypeInfo {
-            type_id: ::std::any::TypeId::of::<#target_ty>(),
+            type_id: ::std::any::TypeId::of::<#alias_ident>(),
             type_name: stringify!(#target_ty),
-            size: ::std::mem::size_of::<#target_ty>(),
-            align: ::std::mem::align_of::<#target_ty>(),
+            size: ::std::mem::size_of::<#alias_ident>(),
+            align: ::std::mem::align_of::<#alias_ident>(),
             structure: ::pulsar_reflection::TypeStructure::Primitive,
             color: #color_expr,
         });

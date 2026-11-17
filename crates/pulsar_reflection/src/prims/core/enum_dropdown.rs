@@ -6,6 +6,7 @@
 //! from selected variant indices. This avoids needing to know the concrete enum
 //! type at compile time.
 
+#[cfg(feature = "prims-gpui")]
 use std::any::Any;
 
 // ── Editor entity ────────────────────────────────────────────────────────────
@@ -139,7 +140,7 @@ pub fn enum_dropdown_editor(
 
     crate::BoundPropertyEditor {
         view: entity.clone().into(),
-        set_value: std::sync::Arc::new(move |value, window, cx| {
+        set_value: std::sync::Arc::new(move |value, _window, cx| {
             let new_value = crate::RUNTIME_TYPE_REGISTRY
                 .serialize_json_for_any(value)
                 .ok()

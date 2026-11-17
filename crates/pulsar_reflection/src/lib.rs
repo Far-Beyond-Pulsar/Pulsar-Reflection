@@ -50,6 +50,7 @@ use serde_json::Value;
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt;
+#[cfg(feature = "prims-gpui")]
 use std::sync::Arc;
 
 // Re-export for convenience
