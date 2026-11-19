@@ -21,6 +21,41 @@ pub trait AssetKind: 'static {
     }
 }
 
+/// Says which [`AssetKind`] a reflected `AssetRef<K>` type is. Submitted by
+/// the macro that reflects a kind's reference, so a kind that can be a
+/// property is always listed (there is no second step to forget).
+pub struct AssetRefKindHint {
+    /// `TypeId` of `AssetRef<K>`.
+    pub type_id: fn() -> std::any::TypeId,
+    /// `K::KIND`.
+    pub kind: &'static str,
+}
+
+inventory::collect!(AssetRefKindHint);
+
+/// The asset kind a property of this type references, looking through
+/// `Option` and `Vec` (so `Option<AssetRef<K>>` and `Vec<AssetRef<K>>` both
+/// answer `K::KIND`). `None` for every other type.
+///
+/// This is what lets a host find the asset references of any component from
+/// its reflected properties, without naming the component or the property.
+pub fn asset_kind_of(info: &crate::RuntimeTypeInfo) -> Option<&'static str> {
+    use crate::{TypeStructure, WrapperType};
+    if let Some(hint) = inventory::iter::<AssetRefKindHint>
+        .into_iter()
+        .find(|hint| (hint.type_id)() == info.type_id)
+    {
+        return Some(hint.kind);
+    }
+    match &info.structure {
+        TypeStructure::Wrapper {
+            wrapper_kind: WrapperType::Option | WrapperType::Vec,
+            inner,
+        } => asset_kind_of(inner),
+        _ => None,
+    }
+}
+
 /// A stable GUID reference whose kind is checked by Rust's type system.
 ///
 /// The marker has no serialized representation; every `AssetRef<K>` is a
@@ -140,6 +175,18 @@ pub enum AnimationMontageAssetKind {}
 impl AssetKind for AnimationMontageAssetKind {
     const KIND: &'static str = "anim_montage";
     const EXTENSIONS: &'static [&'static str] = &["montage"];
+}
+/// An input mapping (`.inputmap`): the bindings a player's input activates.
+pub enum InputMapAssetKind {}
+impl AssetKind for InputMapAssetKind {
+    const KIND: &'static str = "inputmap";
+    const EXTENSIONS: &'static [&'static str] = &["inputmap"];
+}
+/// An input action (`.inputaction`): what a mapping's keys produce.
+pub enum InputActionAssetKind {}
+impl AssetKind for InputActionAssetKind {
+    const KIND: &'static str = "inputaction";
+    const EXTENSIONS: &'static [&'static str] = &["inputaction"];
 }
 pub enum AnimationGraphAssetKind {}
 impl AssetKind for AnimationGraphAssetKind {
@@ -301,6 +348,13 @@ macro_rules! reflect_asset_ref {
         )]
         #[allow(dead_code)]
         type $alias = AssetRef<$kind>;
+
+        ::inventory::submit! {
+            crate::asset_refs::AssetRefKindHint {
+                type_id: || std::any::TypeId::of::<AssetRef<$kind>>(),
+                kind: <$kind as AssetKind>::KIND,
+            }
+        }
     };
 }
 
@@ -315,6 +369,12 @@ reflect_asset_ref!(
     AnimationGraphAssetKind,
     serialize_animation_graph_ref,
     deserialize_animation_graph_ref
+);
+reflect_asset_ref!(
+    RegisteredInputMapRef,
+    InputMapAssetKind,
+    serialize_input_map_ref,
+    deserialize_input_map_ref
 );
 
 /// The optional form components use for an unset slot: `null` or a UUID string.
@@ -370,6 +430,33 @@ reflect_optional_asset_ref!(
     serialize_optional_animation_graph_ref,
     deserialize_optional_animation_graph_ref
 );
+reflect_optional_asset_ref!(
+    RegisteredOptionalInputMapRef,
+    InputMapAssetKind,
+    serialize_optional_input_map_ref,
+    deserialize_optional_input_map_ref
+);
+
+#[cfg(test)]
+mod asset_kind_hint_tests {
+    use super::*;
+    use crate::Reflectable;
+
+    #[test]
+    fn a_reflected_reference_says_which_kind_it_is_through_its_wrappers() {
+        let bare = <AssetRef<InputMapAssetKind> as Reflectable>::type_info();
+        let optional = <Option<AssetRef<InputMapAssetKind>> as Reflectable>::type_info();
+        let list = <Vec<AssetRef<AnimationGraphAssetKind>> as Reflectable>::type_info();
+        assert_eq!(asset_kind_of(bare), Some("inputmap"));
+        assert_eq!(asset_kind_of(optional), Some("inputmap"));
+        assert_eq!(asset_kind_of(list), Some("anim_graph"));
+        assert_eq!(asset_kind_of(<String as Reflectable>::type_info()), None);
+        assert_eq!(
+            asset_kind_of(<Option<i32> as Reflectable>::type_info()),
+            None
+        );
+    }
+}
 #[cfg(test)]
 mod animation_kind_tests {
     use super::*;
@@ -424,4 +511,22 @@ mod animation_kind_tests {
             AssetRef::new()
         }
     }
+}
+
+/// A property that opted out of raising events (`#[property(events = false)]`):
+/// an asset reference that names an asset but whose events scripts should not
+/// be offered through the component. Submitted by `#[engine_class]`.
+pub struct PropertyEventsOptOut {
+    pub class_name: &'static str,
+    pub property: &'static str,
+}
+
+inventory::collect!(PropertyEventsOptOut);
+
+/// Whether the asset events of `class_name.property` are offered (the default;
+/// `false` after `#[property(events = false)]`).
+pub fn property_declares_events(class_name: &str, property: &str) -> bool {
+    !inventory::iter::<PropertyEventsOptOut>
+        .into_iter()
+        .any(|opt_out| opt_out.class_name == class_name && opt_out.property == property)
 }

@@ -69,6 +69,8 @@ pub use inventory;
 
 // Re-export runtime type system
 pub use asset_refs::{
+    asset_kind_of, property_declares_events, AssetRefKindHint, InputActionAssetKind,
+    InputMapAssetKind, PropertyEventsOptOut,
     AnimationGraphAssetKind, AnimationMontageAssetKind, AnimationSequenceAssetKind,
     AssetKind, AssetRef, BlendSpaceAssetKind, IkRetargeterAssetKind, IkRigAssetKind,
     ImageAssetKind, ImageRef, MaterialAssetKind, MaterialRef, PoseDatabaseAssetKind,
