@@ -7,6 +7,7 @@ mod f64;
 mod i32;
 mod i64;
 mod u64;
+mod vec2;
 mod vec3;
 
 /// Public so consumers can reuse the RGBA↔HSLA conversion the colour editor
