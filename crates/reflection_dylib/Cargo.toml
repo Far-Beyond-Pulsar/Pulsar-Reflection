@@ -1,0 +1,18 @@
+[package]
+name = "reflection_dylib"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "The reflection system (Pulsar-Reflection: class and property metadata, the registries) as one shared Rust dylib, on top of the UI libraries. A binary or plugin library that links it shares one set of reflection registries. Built with `-C prefer-dynamic` (.cargo/config.toml)."
+
+[lib]
+crate-type = ["dylib"]
+
+[dependencies]
+# The UI framework and component libraries reflection's UI primitives (`prims-gpui`) use: one
+# copy of each, from their own libraries.
+wgpui_dylib = { git = "https://github.com/Far-Beyond-Pulsar/WGPUI" }
+ui_dylib = { git = "https://github.com/Far-Beyond-Pulsar/WGPUI-Component" }
+# `prims-gpui` is the feature every consumer builds with: features are additive, so one without it
+# would build a different reflection than this library holds.
+pulsar_reflection = { path = "../pulsar_reflection", features = ["prims-gpui"] }

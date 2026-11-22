@@ -3,6 +3,7 @@ members = [
     "crates/pulsar_reflection",
     "crates/pulsar_reflection_derive",
     "crates/pulsar_reflection_codegen",
+    "crates/reflection_dylib",
 ]
 resolver = "2"
 
