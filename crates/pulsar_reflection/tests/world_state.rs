@@ -10,6 +10,12 @@ use std::path::{Path, PathBuf};
 /// `(file under src/, declarations, why)`.
 const LISTED: &[(&str, usize, &str)] = &[
     (
+        "asset_refs.rs",
+        2,
+        "the asset-ref kind hint and property events opt-out inventory lists, read through \
+         the runtime",
+    ),
+    (
         "conversions.rs",
         2,
         "the conversion inventory list and the CONVERSION_REGISTRY facade over the runtime",
@@ -35,11 +41,6 @@ const LISTED: &[(&str, usize, &str)] = &[
         "the method inventory list and the METHOD_REGISTRY facade over the runtime",
     ),
     (
-        "prims/helio/movability.rs",
-        1,
-        "Movability's RuntimeTypeInfo, immutable",
-    ),
-    (
         "prims/std/wrappers.rs",
         1,
         "per-copy RuntimeTypeInfo of std wrappers by TypeId, derived from the type alone",
@@ -52,7 +53,7 @@ const LISTED: &[(&str, usize, &str)] = &[
     ),
     (
         "runtime.rs",
-        14,
+        16,
         "the runtime itself: OWN, ATTACHED, and the registries it owns",
     ),
     (

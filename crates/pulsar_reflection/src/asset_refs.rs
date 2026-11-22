@@ -41,8 +41,8 @@ inventory::collect!(AssetRefKindHint);
 /// its reflected properties, without naming the component or the property.
 pub fn asset_kind_of(info: &crate::RuntimeTypeInfo) -> Option<&'static str> {
     use crate::{TypeStructure, WrapperType};
-    if let Some(hint) = inventory::iter::<AssetRefKindHint>
-        .into_iter()
+    if let Some(hint) = crate::runtime::asset_ref_kinds()
+        .iter()
         .find(|hint| (hint.type_id)() == info.type_id)
     {
         return Some(hint.kind);
@@ -526,7 +526,7 @@ inventory::collect!(PropertyEventsOptOut);
 /// Whether the asset events of `class_name.property` are offered (the default;
 /// `false` after `#[property(events = false)]`).
 pub fn property_declares_events(class_name: &str, property: &str) -> bool {
-    !inventory::iter::<PropertyEventsOptOut>
-        .into_iter()
+    !crate::runtime::events_opt_outs()
+        .iter()
         .any(|opt_out| opt_out.class_name == class_name && opt_out.property == property)
 }
