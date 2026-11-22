@@ -13,7 +13,7 @@ struct Foo {
 }
 
 #[derive(Clone, Reflectable)]
-#[allow(non_camel_case_types, dead_code)]
+#[allow(non_camel_case_types, dead_code, clippy::upper_case_acronyms)]
 struct FOO {
     value: i32,
 }
