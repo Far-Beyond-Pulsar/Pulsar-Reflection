@@ -12,13 +12,16 @@ use inventory;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 
+/// Converts a boxed value of a conversion's source type to its target type.
+pub type ConvertFn = fn(Box<dyn Any>) -> ReflectResult<Box<dyn Any>>;
+
 /// Link-time registration for one conversion edge.
 pub struct ConversionRegistration {
     pub source_type_id: fn() -> TypeId,
     pub target_type_id: fn() -> TypeId,
     pub source_type_name: fn() -> &'static str,
     pub target_type_name: fn() -> &'static str,
-    pub convert: fn(Box<dyn Any>) -> ReflectResult<Box<dyn Any>>,
+    pub convert: ConvertFn,
     /// A stable identifier suitable for serialized graph node definitions.
     pub id: &'static str,
     /// `INTO` for infallible `From`; `FROM` for fallible `TryFrom`.
@@ -36,7 +39,7 @@ pub struct ConversionInfo {
     pub label: &'static str,
     source_type_id: TypeId,
     target_type_id: TypeId,
-    convert: fn(Box<dyn Any>) -> ReflectResult<Box<dyn Any>>,
+    convert: ConvertFn,
 }
 
 impl ConversionInfo {

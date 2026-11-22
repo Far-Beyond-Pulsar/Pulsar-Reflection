@@ -23,7 +23,6 @@ type RegisteredF64 = f64;
 // with a fractional part follow Rust's cast semantics and truncate toward zero.
 #[crate::pulsar_conversion]
 fn convert_f64_to_i32(value: f64) -> Result<i32, String> {
-    let value = value;
     if !value.is_finite() || value < i32::MIN as f64 || value >= 2147483648.0 {
         return Err(
             "floating-point value is non-finite or outside the target integer range".to_string(),
@@ -34,7 +33,6 @@ fn convert_f64_to_i32(value: f64) -> Result<i32, String> {
 
 #[crate::pulsar_conversion]
 fn convert_f64_to_i64(value: f64) -> Result<i64, String> {
-    let value = value;
     if !value.is_finite() || value < -9223372036854775808.0 || value >= 9223372036854775808.0 {
         return Err(
             "floating-point value is non-finite or outside the target integer range".to_string(),
@@ -45,7 +43,6 @@ fn convert_f64_to_i64(value: f64) -> Result<i64, String> {
 
 #[crate::pulsar_conversion]
 fn convert_f64_to_u32(value: f64) -> Result<u32, String> {
-    let value = value;
     if !value.is_finite() || value < 0.0 || value >= 4294967296.0 {
         return Err(
             "floating-point value is non-finite or outside the target integer range".to_string(),
@@ -56,7 +53,6 @@ fn convert_f64_to_u32(value: f64) -> Result<u32, String> {
 
 #[crate::pulsar_conversion]
 fn convert_f64_to_u64(value: f64) -> Result<u64, String> {
-    let value = value;
     if !value.is_finite() || value < 0.0 || value >= 18446744073709551616.0 {
         return Err(
             "floating-point value is non-finite or outside the target integer range".to_string(),

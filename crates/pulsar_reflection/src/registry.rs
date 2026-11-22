@@ -19,7 +19,7 @@ pub struct EngineClassRegistration {
     /// don't derive `Deserialize` (no `deserialize` on their
     /// `#[engine_class(...)]` attribute) -- the properties panel and
     /// `SceneDatabase` fall back to the flat-JSON path for those.
-    pub from_json: Option<fn(&Value) -> Result<Box<dyn EngineClass>, String>>,
+    pub from_json: Option<FromJsonFn>,
 }
 
 // Collect all engine class registrations at link time
@@ -36,11 +36,15 @@ pub struct ComponentMethodRegistration {
 // Collect all component method registrations at link time
 inventory::collect!(ComponentMethodRegistration);
 
+/// Deserializes a whole instance of a class from JSON
+/// ([`EngineClassRegistration::from_json`]).
+pub type FromJsonFn = fn(&Value) -> Result<Box<dyn EngineClass>, String>;
+
 /// Entry stored in the registry
 struct RegistryEntry {
     constructor: fn() -> Box<dyn EngineClass>,
     category: Option<&'static str>,
-    from_json: Option<fn(&Value) -> Result<Box<dyn EngineClass>, String>>,
+    from_json: Option<FromJsonFn>,
 }
 
 /// Global registry of all engine classes

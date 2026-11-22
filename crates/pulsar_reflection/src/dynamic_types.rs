@@ -209,8 +209,7 @@ impl DynamicValue {
                     "Failed to downcast field '{}' to requested type",
                     field_name
                 )
-            })
-            .map(|val| val.clone())
+            }).cloned()
     }
 
     /// Get a mutable field value with automatic downcasting

@@ -70,7 +70,7 @@ where
                     .map(|v| *v)
                     .map_err(|boxed| ReflectError::TypeMismatch {
                         expected: std::any::type_name::<T>(),
-                        found: format!("{:?}", (&*boxed).type_id()),
+                        found: format!("{:?}", (*boxed).type_id()),
                     })
             })
             .collect()
@@ -190,7 +190,7 @@ where
         let value = value_map
             .into_iter()
             .next()
-            .ok_or_else(|| ReflectError::MissingField {
+            .ok_or(ReflectError::MissingField {
                 struct_name: "Option",
                 field_name: "value",
             })?
@@ -199,7 +199,7 @@ where
             .map(|v| *v)
             .map_err(|boxed| ReflectError::TypeMismatch {
                 expected: std::any::type_name::<T>(),
-                found: format!("{:?}", (&*boxed).type_id()),
+                found: format!("{:?}", (*boxed).type_id()),
             })?;
 
         Ok(Some(value))

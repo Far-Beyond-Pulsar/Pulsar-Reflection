@@ -158,13 +158,18 @@ pub struct PropertyEditorArgs<'a> {
 /// panel) still reach the editor.  `set_value` receives the value as
 /// `&dyn Any`; only the editor that produced the closure knows the concrete
 /// type, which is what keeps widget knowledge out of the framework.
+/// Pushes a fresh value into a bound property editor
+/// ([`BoundPropertyEditor::set_value`]).
+#[cfg(feature = "prims-gpui")]
+pub type SetValueFn = Arc<dyn Fn(&dyn Any, &mut gpui::Window, &mut gpui::App) + Send + Sync>;
+
 #[cfg(feature = "prims-gpui")]
 #[derive(Clone)]
 pub struct BoundPropertyEditor {
     /// Type-erased renderable handle to the editor entity.
     pub view: gpui::AnyView,
     /// Push a fresh value into the editor.  A no-op if the value is unchanged.
-    pub set_value: Arc<dyn Fn(&dyn Any, &mut gpui::Window, &mut gpui::App) + Send + Sync>,
+    pub set_value: SetValueFn,
     /// Content too large for one row, offered to the panel as rows of its own
     /// (see [`VirtualRows`]).  `None` for an editor that fits in its row.
     pub rows: Option<Arc<dyn VirtualRows>>,
@@ -447,6 +452,12 @@ pub trait EngineClass: Any + Send + Sync {
 /// registered as top-level components.
 pub trait EngineSubProps: EngineClass {}
 
+/// Reads a property's current value, type-erased ([`PropertyMetadata::getter`]).
+pub type PropertyGetter = Box<dyn Fn(&dyn EngineClass) -> Box<dyn Any> + Send + Sync>;
+
+/// Writes a property's new value, type-erased ([`PropertyMetadata::setter`]).
+pub type PropertySetter = Box<dyn Fn(&mut dyn EngineClass, Box<dyn Any>) + Send + Sync>;
+
 /// Metadata for a single property field
 ///
 /// Contains all information needed to display and edit a property in the UI,
@@ -476,10 +487,10 @@ pub struct PropertyMetadata {
     pub type_info: &'static RuntimeTypeInfo,
 
     /// Getter closure to read current value (returns type-erased Any)
-    pub getter: Box<dyn Fn(&dyn EngineClass) -> Box<dyn Any> + Send + Sync>,
+    pub getter: PropertyGetter,
 
     /// Setter closure to write new value (accepts type-erased Any)
-    pub setter: Box<dyn Fn(&mut dyn EngineClass, Box<dyn Any>) + Send + Sync>,
+    pub setter: PropertySetter,
 }
 
 impl fmt::Debug for PropertyMetadata {

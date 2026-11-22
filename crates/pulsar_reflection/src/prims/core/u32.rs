@@ -27,7 +27,7 @@ fn convert_u32_to_i32(value: u32) -> Result<i32, String> {
 
 #[crate::pulsar_conversion]
 fn convert_u32_to_i64(value: u32) -> Result<i64, String> {
-    i64::try_from(value).map_err(|_| "integer value is outside the target type's range".to_string())
+    Ok(i64::from(value))
 }
 
 #[crate::pulsar_conversion]

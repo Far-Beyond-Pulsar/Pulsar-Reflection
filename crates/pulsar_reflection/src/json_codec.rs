@@ -88,6 +88,9 @@ impl JsonDeserializer {
     }
 
     /// Create a new JSON deserializer from a JSON string.
+    // An inherent constructor kept for its callers; it returns a ReflectResult,
+    // not FromStr's associated error type.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(json: &str) -> ReflectResult<Self> {
         let value = serde_json::from_str(json)
             .map_err(|e| ReflectError::DeserializationFailed(e.to_string()))?;
@@ -137,7 +140,7 @@ impl TypeDeserializer for JsonDeserializer {
         for field in fields {
             let field_value = obj
                 .get(field.name)
-                .ok_or_else(|| ReflectError::MissingField {
+                .ok_or(ReflectError::MissingField {
                     struct_name: "unknown",
                     field_name: field.name,
                 })?;
