@@ -3,8 +3,10 @@ members = [
     "crates/pulsar_reflection",
     "crates/pulsar_reflection_derive",
     "crates/pulsar_reflection_codegen",
-    "crates/reflection_dylib",
 ]
+# The shared library crate builds inside Pulsar-Native's workspace (its dependencies on the other
+# shared libraries resolve there, through its `[patch]` entries): it is not a member of this one.
+exclude = ["crates/reflection_dylib"]
 resolver = "2"
 
 [workspace.package]
