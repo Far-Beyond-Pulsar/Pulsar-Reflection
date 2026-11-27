@@ -41,6 +41,7 @@ pub mod runtime_types;
 pub mod trait_registry;
 pub mod type_renderer;
 pub mod type_traits;
+pub mod value_tree;
 
 // Primitive type implementations
 pub mod prims;

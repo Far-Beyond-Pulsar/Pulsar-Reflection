@@ -8,7 +8,13 @@
 
 use gpui::prelude::*;
 use gpui::{div, px, AnyElement, App, Div, FontWeight, Hsla, SharedString};
+use serde_json::Value;
 use ui::{h_flex, ActiveTheme, Icon, IconName, Sizable as _};
+
+use crate::value_tree;
+
+/// Characters of a string drawn in its row.
+const MAX_TEXT: usize = 400;
 
 /// The face of numbers, addresses and other literal values.
 pub const MONO: &str = "JetBrains Mono";
@@ -59,6 +65,86 @@ pub fn control_box(control: impl IntoElement) -> Div {
         .max_w(px(CONTROL_MAX_WIDTH))
         .font_family(MONO)
         .child(control)
+}
+
+/// The chrome of one row in a table of values: a hairline under it, a tint on
+/// every second one, and lit under the pointer.
+pub fn table_row<E>(row: E, striped: bool, cx: &App) -> E
+where
+    E: gpui::Styled + gpui::InteractiveElement,
+{
+    let theme = cx.theme();
+    let hover = theme.list_hover;
+    let stripe = theme.muted.opacity(0.08);
+    let row = row
+        .border_b_1()
+        .border_color(theme.border.opacity(0.35))
+        .hover(move |row| row.bg(hover));
+    if striped {
+        row.bg(stripe)
+    } else {
+        row
+    }
+}
+
+/// No value.
+pub fn null_value(cx: &App) -> Div {
+    mono()
+        .italic()
+        .text_color(cx.theme().muted_foreground)
+        .child("none")
+}
+
+/// A number, as already written.
+pub fn number_value(text: impl Into<SharedString>, cx: &App) -> Div {
+    mono().text_color(cx.theme().cyan).child(text.into())
+}
+
+/// A string, quoted and kept to one line.
+pub fn text_value(text: &str, cx: &App) -> Div {
+    let mut shown: String = text.chars().take(MAX_TEXT).collect();
+    shown = shown.replace('\n', "↵");
+    if text.chars().nth(MAX_TEXT).is_some() {
+        shown.push('…');
+    }
+    mono()
+        .text_color(cx.theme().green)
+        .child(format!("\"{shown}\""))
+}
+
+/// What a closed container holds (see [`value_tree::summary`]).
+pub fn summary_value(text: impl Into<SharedString>, cx: &App) -> Div {
+    div()
+        .truncate()
+        .text_color(cx.theme().muted_foreground)
+        .child(text.into())
+}
+
+/// A colour: its swatch, then its numbers.
+pub fn color_value(color: Hsla, text: impl Into<SharedString>, cx: &App) -> Div {
+    h_flex()
+        .gap_2()
+        .items_center()
+        .child(color_swatch(color, cx))
+        .child(mono().text_color(cx.theme().foreground).child(text.into()))
+}
+
+/// A value nothing can edit, drawn by what its JSON is.
+pub fn json_value(value: &Value, cx: &App) -> AnyElement {
+    match value {
+        Value::Null => null_value(cx).into_any_element(),
+        Value::Bool(value) => bool_value(*value, cx).into_any_element(),
+        Value::Number(number) => {
+            number_value(value_tree::number_text(number), cx).into_any_element()
+        }
+        Value::String(text) => text_value(text, cx).into_any_element(),
+        Value::Array(items) => {
+            summary_value(value_tree::summary(value, items.len()), cx).into_any_element()
+        }
+        Value::Object(map) => {
+            summary_value(value_tree::summary(value, map.len()), cx).into_any_element()
+        }
+    }
 }
 
 /// A heading over a group of rows.
