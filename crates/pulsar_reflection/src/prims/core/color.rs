@@ -175,11 +175,22 @@ impl gpui::Render for ColorEditor {
         _window: &mut gpui::Window,
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
-        use ui::color_picker::ColorPicker;
+        use gpui::prelude::*;
+        use ui::{color_picker::ColorPicker, h_flex, ActiveTheme};
 
+        let numbers = self.value.map(|channel| format!("{channel:.2}")).join(", ");
         crate::prims::editor_row(
             &self.label,
-            ColorPicker::new(&self.picker).anchor(gpui::Corner::BottomRight),
+            h_flex()
+                .min_w_0()
+                .gap_2()
+                .items_center()
+                .child(ColorPicker::new(&self.picker).anchor(gpui::Corner::BottomLeft))
+                .child(
+                    crate::prims::style::mono()
+                        .text_color(cx.theme().muted_foreground)
+                        .child(numbers),
+                ),
             cx,
         )
     }

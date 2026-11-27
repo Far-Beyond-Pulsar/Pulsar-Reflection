@@ -201,7 +201,7 @@ impl gpui::Render for F64Editor {
 
         crate::prims::editor_row(
             &self.label,
-            NumberInput::new(&self.input).xsmall().w(gpui::px(92.0)),
+            crate::prims::style::control_box(NumberInput::new(&self.input).xsmall().w_full()),
             cx,
         )
     }

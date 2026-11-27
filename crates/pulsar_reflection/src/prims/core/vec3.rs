@@ -66,16 +66,10 @@ impl gpui::Render for Vec3Editor {
         _window: &mut gpui::Window,
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
-        use gpui::prelude::*;
-        use ui::ActiveTheme;
-
-        let [x, y, z] = self.value;
+        let components = self.value.map(|component| format!("{component:.3}"));
         crate::prims::editor_row(
             &self.label,
-            gpui::div()
-                .text_sm()
-                .text_color(cx.theme().foreground)
-                .child(format!("{x:.3}, {y:.3}, {z:.3}")),
+            crate::prims::style::vector_value(&components, cx),
             cx,
         )
     }

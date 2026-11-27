@@ -43,9 +43,9 @@ fn deserialize_bool_json(value: serde_json::Value) -> crate::ReflectResult<bool>
 
 // ── Editor ────────────────────────────────────────────────────────────────────
 
-/// Property editor for `bool` — a switch.
+/// Property editor for `bool` — a check box.
 ///
-/// Needs no child entities: the switch is an element, so the click handler can
+/// Needs no child entities: the box is an element, so the click handler can
 /// write back directly.
 #[cfg(feature = "prims-gpui")]
 pub struct BoolEditor {
@@ -62,17 +62,19 @@ impl gpui::Render for BoolEditor {
         _window: &mut gpui::Window,
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
-        use ui::{switch::Switch, Sizable};
+        use gpui::prelude::*;
 
         let write_back = self.write_back.clone();
+        let flipped = !self.value;
         crate::prims::editor_row(
             &self.label,
-            Switch::new(self.id.clone())
-                .checked(self.value)
-                .small()
-                .on_click(move |checked, window, cx| {
-                    (write_back)(Box::new(*checked), window, cx);
-                }),
+            gpui::div()
+                .id(self.id.clone())
+                .cursor_pointer()
+                .on_click(move |_, window, cx| {
+                    (write_back)(Box::new(flipped), window, cx);
+                })
+                .child(crate::prims::style::bool_value(self.value, cx)),
             cx,
         )
     }

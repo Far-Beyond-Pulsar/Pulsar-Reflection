@@ -155,7 +155,7 @@ impl gpui::Render for StringEditor {
 
         crate::prims::editor_row(
             &self.label,
-            Input::new(&self.input).xsmall().w(gpui::px(160.0)),
+            crate::prims::style::control_box(Input::new(&self.input).xsmall().w_full()),
             cx,
         )
     }

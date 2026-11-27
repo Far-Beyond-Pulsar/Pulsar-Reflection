@@ -88,13 +88,16 @@ impl gpui::Render for U32Editor {
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
         use gpui::prelude::*;
-        use ui::{button::Button, menu::PopupMenuItem, ActiveTheme, Sizable};
+        use ui::{
+            button::{Button, ButtonVariants as _},
+            menu::PopupMenuItem,
+            ActiveTheme, Sizable,
+        };
 
         let Some(variants) = self.variants else {
             return crate::prims::editor_row(
                 &self.label,
-                gpui::div()
-                    .text_sm()
+                crate::prims::style::mono()
                     .text_color(cx.theme().foreground)
                     .child(self.value.to_string()),
                 cx,
@@ -105,27 +108,28 @@ impl gpui::Render for U32Editor {
         let label = variants.get(selected_ix).copied().unwrap_or("Select");
         let write_back = self.write_back.clone();
 
+        let control = Button::new(self.id.clone())
+            .label(label)
+            .xsmall()
+            .ghost()
+            .dropdown_caret(true)
+            .dropdown_menu_with_anchor(gpui::Corner::BottomLeft, move |menu, _window, _cx| {
+                let mut menu = menu;
+                for (ix, option) in variants.iter().enumerate() {
+                    let write_back = write_back.clone();
+                    menu = menu.item(
+                        PopupMenuItem::new(option.to_string())
+                            .checked(ix == selected_ix)
+                            .on_click(move |_event, window, cx| {
+                                (write_back)(Box::new(ix as u32), window, cx);
+                            }),
+                    );
+                }
+                menu
+            });
         crate::prims::editor_row(
             &self.label,
-            Button::new(self.id.clone())
-                .label(label)
-                .xsmall()
-                .outline()
-                .dropdown_caret(true)
-                .dropdown_menu_with_anchor(gpui::Corner::BottomRight, move |menu, _window, _cx| {
-                    let mut menu = menu;
-                    for (ix, option) in variants.iter().enumerate() {
-                        let write_back = write_back.clone();
-                        menu = menu.item(
-                            PopupMenuItem::new(option.to_string())
-                                .checked(ix == selected_ix)
-                                .on_click(move |_event, window, cx| {
-                                    (write_back)(Box::new(ix as u32), window, cx);
-                                }),
-                        );
-                    }
-                    menu
-                }),
+            crate::prims::style::variant_box(control, cx),
             cx,
         )
     }

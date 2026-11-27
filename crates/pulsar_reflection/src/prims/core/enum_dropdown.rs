@@ -37,13 +37,16 @@ impl gpui::Render for EnumDropdownEditor {
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
         use gpui::prelude::*;
-        use ui::{button::Button, menu::PopupMenuItem, ActiveTheme, Sizable};
+        use ui::{
+            button::{Button, ButtonVariants as _},
+            menu::PopupMenuItem,
+            ActiveTheme, Sizable,
+        };
 
         let Some(variants) = self.variants else {
             return crate::prims::editor_row(
                 &self.label,
-                gpui::div()
-                    .text_sm()
+                crate::prims::style::mono()
                     .text_color(cx.theme().foreground)
                     .child(self.value.to_string()),
                 cx,
@@ -63,38 +66,39 @@ impl gpui::Render for EnumDropdownEditor {
         if let Some(tooltip) = tooltip {
             button = button.tooltip(tooltip);
         }
+        let control = button
+            .label(label)
+            .xsmall()
+            .ghost()
+            .dropdown_caret(true)
+            .dropdown_menu_with_anchor(gpui::Corner::BottomLeft, move |menu, _window, _cx| {
+                let mut menu = menu;
+                for (ix, _option) in variants.iter().enumerate() {
+                    let write_back = write_back.clone();
+                    menu = menu.item(
+                        PopupMenuItem::new(variants[ix].to_string())
+                            .checked(ix == selected_ix)
+                            .on_click(move |_event, window, cx| {
+                                // Deserialise the variant index back into the concrete
+                                // enum type through the runtime type registry.
+                                let json = serde_json::json!(ix as u64);
+                                if let Ok(val) = crate::RUNTIME_TYPE_REGISTRY
+                                    .deserialize_json_for_type(type_info, json)
+                                {
+                                    // SAFETY: All unit enums registered with the reflection
+                                    // system implement Send (C-like enums with no heap data).
+                                    let val: Box<dyn Any + Send> =
+                                        unsafe { std::mem::transmute(val) };
+                                    (write_back)(val, window, cx);
+                                }
+                            }),
+                    );
+                }
+                menu
+            });
         crate::prims::editor_row(
             &self.label,
-            button
-                .label(label)
-                .xsmall()
-                .outline()
-                .dropdown_caret(true)
-                .dropdown_menu_with_anchor(gpui::Corner::BottomRight, move |menu, _window, _cx| {
-                    let mut menu = menu;
-                    for (ix, _option) in variants.iter().enumerate() {
-                        let write_back = write_back.clone();
-                        menu = menu.item(
-                            PopupMenuItem::new(variants[ix].to_string())
-                                .checked(ix == selected_ix)
-                                .on_click(move |_event, window, cx| {
-                                    // Deserialise the variant index back into the concrete
-                                    // enum type through the runtime type registry.
-                                    let json = serde_json::json!(ix as u64);
-                                    if let Ok(val) = crate::RUNTIME_TYPE_REGISTRY
-                                        .deserialize_json_for_type(type_info, json)
-                                    {
-                                        // SAFETY: All unit enums registered with the reflection
-                                        // system implement Send (C-like enums with no heap data).
-                                        let val: Box<dyn Any + Send> =
-                                            unsafe { std::mem::transmute(val) };
-                                        (write_back)(val, window, cx);
-                                    }
-                                }),
-                        );
-                    }
-                    menu
-                }),
+            crate::prims::style::variant_box(control, cx),
             cx,
         )
     }
